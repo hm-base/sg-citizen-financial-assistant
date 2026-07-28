@@ -179,6 +179,47 @@ body {
   color: var(--color-muted);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.provider-indicator {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.provider-indicator.hidden { display: none; }
+
+.citation-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+}
+
+.citation-warning.hidden { display: none; }
+
+.sources-list .source-thumbnail {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  width: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin: 0 0 8px;
+}
+
 .theme-toggle {
   background: transparent;
   color: var(--color-muted);

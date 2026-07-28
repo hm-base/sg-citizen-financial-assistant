@@ -20,7 +20,10 @@
         <div class="subtitle">Singapore Citizen Financial Assistant</div>
       </div>
     </div>
-    <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
+    <div class="header-actions">
+      <span id="provider-indicator" class="provider-indicator hidden"></span>
+      <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
+    </div>
   </header>
 
   <div class="mode-toggle" role="tablist" aria-label="Assistant mode">
@@ -87,8 +90,9 @@
 
       <details class="advanced-panel">
         <summary>Advanced (demo controls)</summary>
-        <label>Top K <input id="control-top-k" type="number" min="1" max="20" value="5" /></label>
-        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" value="0.35" /></label>
+        <!-- Initial values are populated from GET /api/config on page load. -->
+        <label>Top K <input id="control-top-k" type="number" min="1" max="20" /></label>
+        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" /></label>
         <label>Retrieval mode
           <select id="control-mode">
             <option value="dense">Dense (baseline)</option>
@@ -100,6 +104,7 @@
 
     <section class="answer-panel">
       <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
+      <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
       <div id="answer-text" class="answer-text" aria-live="polite"></div>
       <h2>Sources</h2>
       <ul id="sources-list" class="sources-list"></ul>

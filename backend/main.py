@@ -107,6 +107,11 @@ def get_config():
     }
 
 
+_raw_dir = config.DATA_DIR / "raw"
+if _raw_dir.exists():
+    # Serves source infographics so the sources panel can show thumbnails.
+    app.mount("/media", StaticFiles(directory=str(_raw_dir)), name="media")
+
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if _frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
