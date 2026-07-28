@@ -319,6 +319,39 @@ textarea:focus, select:focus, input:focus {
   padding: 0.5rem 0.75rem;
 }
 
+.sample-questions {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 1rem;
+}
+
+.sample-questions label {
+  margin: 0 0 0.4rem;
+}
+
+.sample-question-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0.6rem;
+}
+
+.sample-question-btn {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sample-question-btn:hover {
+  border-color: var(--color-primary);
+}
+
 .tags label {
   font-weight: 400;
   display: flex;

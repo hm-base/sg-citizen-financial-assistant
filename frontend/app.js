@@ -41,6 +41,102 @@ modeButtons.forEach((button) => {
   });
 });
 
+// Curated per-topic FAQ starters for the demo. Purely a UI convenience — each
+// button just fills the question box and asks like any manually typed
+// question; topics whose source documents haven't been ingested yet will
+// correctly abstain rather than hallucinate.
+const SAMPLE_QUESTIONS = {
+  "SkillsFuture / Career Conversion": [
+    "What is SkillsFuture Credit and how much do I get?",
+    "How does the Career Conversion Programme (CCP) help mid-career switchers?",
+    "Am I eligible for the AI Apprenticeship Programme (AIAP) or SNAIC training support?",
+  ],
+  "Baby Bonus": [
+    "How much cash gift do I get from the Baby Bonus Scheme for my first child?",
+    "What is the Child Development Account (CDA) first step grant?",
+    "How does government co-matching work for the Baby Bonus CDA?",
+  ],
+  "GST Voucher": [
+    "How much GST Voucher Cash will I receive this year?",
+    "What is GST Voucher U-Save and how is it credited to my utilities bill?",
+    "Who qualifies for GST Voucher MediSave top-ups?",
+  ],
+  "CDC Vouchers": [
+    "How much CDC Voucher will my household receive?",
+    "Where can I spend my CDC Vouchers?",
+    "When do CDC Vouchers expire?",
+  ],
+  "CHAS": [
+    "What is CHAS and what card tier am I eligible for?",
+    "How much subsidy does CHAS Blue give for chronic condition treatment?",
+    "Can Merdeka Generation seniors use CHAS subsidies at GP clinics?",
+  ],
+  "Silver Support Scheme": [
+    "Am I eligible for the Silver Support Scheme?",
+    "How much quarterly payout does Silver Support give?",
+    "How is Silver Support eligibility determined?",
+  ],
+  "ComCare": [
+    "What is the monthly cash assistance rate for ComCare Long-Term Assistance?",
+    "What is ComCare Short-to-Medium Term Assistance (SMTA) for?",
+    "How do I apply for ComCare financial assistance?",
+  ],
+  "Workfare Income Supplement": [
+    "How much can I receive from Workfare Income Supplement (WIS) per year?",
+    "Am I eligible for Workfare Income Supplement as a self-employed person?",
+    "How is the WIS payout split between cash and CPF?",
+  ],
+  "HDB Grants": [
+    "How much is the Enhanced CPF Housing Grant for a resale flat?",
+    "What HDB grants can first-timer families get?",
+    "Am I eligible for the Proximity Housing Grant?",
+  ],
+  "MediSave / MediShield Life": [
+    "What does MediShield Life cover?",
+    "How much can I withdraw from MediSave for hospitalisation bills?",
+    "What is the MediShield Life premium subsidy for lower-income Singaporeans?",
+  ],
+  "CPF Top-Up / Matched Retirement Savings": [
+    "How does the Matched Retirement Savings Scheme (MRSS) government matching work?",
+    "What are the tax relief benefits of topping up my CPF Retirement Account?",
+    "Who is eligible for the Matched Retirement Savings Scheme?",
+  ],
+  "Home Caregiving Grant": [
+    "How much is the Home Caregiving Grant (HCG) per month?",
+    "Who qualifies for the Home Caregiving Grant?",
+    "Can I use the Home Caregiving Grant together with the Foreign Domestic Worker Levy concession?",
+  ],
+};
+
+const sampleTopicSelect = document.getElementById("sample-topic-select");
+const sampleQuestionButtons = document.getElementById("sample-question-buttons");
+const questionInput = document.getElementById("question-input");
+const askButton = document.getElementById("ask-button");
+
+function renderSampleQuestions(topic) {
+  sampleQuestionButtons.innerHTML = "";
+  (SAMPLE_QUESTIONS[topic] || []).forEach((question) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sample-question-btn";
+    button.textContent = question;
+    button.addEventListener("click", () => {
+      questionInput.value = question;
+      submitQuery(askButton, "Asking...", "/api/query", { question, ...readControls() });
+    });
+    sampleQuestionButtons.appendChild(button);
+  });
+}
+
+Object.keys(SAMPLE_QUESTIONS).forEach((topic) => {
+  const option = document.createElement("option");
+  option.value = topic;
+  option.textContent = topic;
+  sampleTopicSelect.appendChild(option);
+});
+sampleTopicSelect.addEventListener("change", () => renderSampleQuestions(sampleTopicSelect.value));
+renderSampleQuestions(sampleTopicSelect.value);
+
 const topKInput = document.getElementById("control-top-k");
 const thresholdInput = document.getElementById("control-threshold");
 const modeSelect = document.getElementById("control-mode");
