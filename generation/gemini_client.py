@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import google.generativeai as genai
+from google import genai
 
 
 class GeminiClient:
@@ -9,8 +9,8 @@ class GeminiClient:
         if sdk_client is not None:
             self._sdk_client = sdk_client
         else:
-            genai.configure(api_key=api_key)
-            self._sdk_client = _RealGenAIAdapter()
+            client = genai.Client(api_key=api_key)
+            self._sdk_client = _RealGenAIAdapter(client)
 
     def generate(self, prompt: str) -> str:
         response = self._sdk_client.generate_content(self.model_name, prompt)
@@ -22,5 +22,8 @@ class GeminiClient:
 
 
 class _RealGenAIAdapter:
+    def __init__(self, client):
+        self.client = client
+
     def generate_content(self, model: str, contents):
-        return genai.GenerativeModel(model).generate_content(contents)
+        return self.client.models.generate_content(model=model, contents=contents)
