@@ -32,11 +32,22 @@ function renderResult(result) {
   list.innerHTML = "";
   (result.sources || []).forEach((source) => {
     const item = document.createElement("li");
-    item.innerHTML = `
-      <div class="scheme-name">${source.scheme_name}</div>
-      <div class="section">${source.section_or_page}</div>
-      <div class="excerpt">${source.text}</div>
-    `;
+
+    const schemeDiv = document.createElement("div");
+    schemeDiv.className = "scheme-name";
+    schemeDiv.textContent = source.scheme_name;
+    item.appendChild(schemeDiv);
+
+    const sectionDiv = document.createElement("div");
+    sectionDiv.className = "section";
+    sectionDiv.textContent = source.section_or_page;
+    item.appendChild(sectionDiv);
+
+    const excerptDiv = document.createElement("div");
+    excerptDiv.className = "excerpt";
+    excerptDiv.textContent = source.text;
+    item.appendChild(excerptDiv);
+
     list.appendChild(item);
   });
 }
