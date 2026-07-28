@@ -11,6 +11,38 @@ def test_infer_preferred_categories_maps_young_children_tag():
     assert "Family" in categories
 
 
+def test_infer_preferred_categories_maps_caregiver_tag():
+    categories = infer_preferred_categories({"age": 40, "life_stage_tags": ["Caregiver"]})
+    assert "Seniors/caregiving" in categories
+    assert "Healthcare" in categories
+
+
+def test_infer_preferred_categories_maps_lower_income_employed():
+    # Test with $<1.5k income
+    categories = infer_preferred_categories(
+        {"age": 35, "employment": "Employed", "monthly_income_band": "<$1.5k"}
+    )
+    assert "Lower-income/employment" in categories
+
+    # Test with $1.5-3k income
+    categories = infer_preferred_categories(
+        {"age": 35, "employment": "Employed", "monthly_income_band": "$1.5-3k"}
+    )
+    assert "Lower-income/employment" in categories
+
+    # Negative case: employed but income band NOT in lower range should NOT trigger
+    categories = infer_preferred_categories(
+        {"age": 35, "employment": "Employed", "monthly_income_band": "$5-7k"}
+    )
+    assert "Lower-income/employment" not in categories
+
+
+def test_infer_preferred_categories_maps_hdb_housing():
+    categories = infer_preferred_categories({"age": 50, "housing": "HDB", "life_stage_tags": []})
+    assert "Housing" in categories
+    assert "Household/cost-of-living" in categories
+
+
 def test_infer_preferred_categories_defaults_to_empty_when_no_signals():
     categories = infer_preferred_categories({"age": 40, "life_stage_tags": []})
     assert categories == set()
