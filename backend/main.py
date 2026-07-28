@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -18,9 +18,21 @@ app = FastAPI(title="SG Citizen Financial Assistant")
 _rag_index_cache: RagIndex | None = None
 
 
+INDEX_MISSING_DETAIL = (
+    "Knowledge base index not found — run `python -m ingestion.build_index` first"
+)
+
+
 def get_rag_index() -> RagIndex:
     global _rag_index_cache
     if _rag_index_cache is None:
+        missing = [
+            path
+            for path in (config.FAISS_INDEX_PATH, config.FAISS_METADATA_PATH)
+            if not Path(path).exists()
+        ]
+        if missing:
+            raise HTTPException(status_code=503, detail=INDEX_MISSING_DETAIL)
         chunk_records = load_metadata(config.FAISS_METADATA_PATH)
         _rag_index_cache = RagIndex(
             faiss_index=load_faiss_index(config.FAISS_INDEX_PATH),

@@ -1,8 +1,33 @@
 import json
 from pathlib import Path
 
+import pandas as pd
+
 from evaluation.metrics import hit_rate, mean_of, reciprocal_rank, recall_at_k
 from generation.pipeline import RagIndex, answer_general_question, answer_profile_question
+
+#: Human answer-quality rubric, scored 0-2 each by a human reviewer after the run.
+RUBRIC_FIELDS = ("correctness_score", "faithfulness_score", "citation_accuracy_score")
+
+
+def load_test_set(path: Path) -> list[dict]:
+    """Load the test set, accepting either a bare list or a `_note`-wrapped object."""
+    with open(path, encoding="utf-8") as handle:
+        raw = json.load(handle)
+    if isinstance(raw, dict):
+        return raw.get("questions", [])
+    return raw
+
+
+def missing_labels_warning(test_set: list[dict]) -> str | None:
+    """Explain why retrieval metrics come back as None when nothing is labeled."""
+    labeled = sum(1 for entry in test_set if entry.get("expected_relevant_chunk_ids"))
+    if labeled:
+        return None
+    return (
+        f"WARNING: {labeled} of {len(test_set)} questions have labeled "
+        "expected_relevant_chunk_ids; retrieval metrics unavailable."
+    )
 
 
 def run_single_question(
@@ -33,13 +58,18 @@ def run_single_question(
             retrieval_mode=retrieval_mode,
         )
 
-    return {
+    row = {
         "id": question_entry["id"],
         "category": question_entry["category"],
         "retrieved_chunk_ids": [source["chunk_id"] for source in result["sources"]],
+        "retrieved_scores": [source.get("score") for source in result["sources"]],
         "generated_answer": result["answer"],
         "abstained": result["abstained"],
+        "citation_warning": result.get("citation_warning"),
     }
+    # Blank columns for the human 0-2 rubric; no automated scoring is attempted.
+    row.update({field: None for field in RUBRIC_FIELDS})
+    return row
 
 
 def compute_aggregate_metrics(rows: list[dict], test_set: list[dict]) -> dict:
@@ -93,14 +123,21 @@ def save_comparison(comparison: dict, output_dir: Path) -> None:
     for mode, payload in comparison.items():
         with open(output_dir / f"{mode}_results.json", "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
+        # CSV alongside JSON so the human rubric columns can be filled in a spreadsheet.
+        pd.DataFrame(payload["rows"]).to_csv(
+            output_dir / f"{mode}_results.csv", index=False, encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
     import config
     from backend.main import get_llm_client, get_rag_index
 
-    with open(Path(__file__).parent / "test_set.json", encoding="utf-8") as handle:
-        test_set = json.load(handle)
+    test_set = load_test_set(Path(__file__).parent / "test_set.json")
+
+    warning = missing_labels_warning(test_set)
+    if warning:
+        print(warning)
 
     rag_index = get_rag_index()
     llm_client = get_llm_client()

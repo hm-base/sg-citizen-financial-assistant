@@ -1,6 +1,9 @@
 import numpy as np
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+import backend.main
 from backend.main import app, get_llm_client, get_rag_index
 from generation.pipeline import RagIndex
 from retrieval.bm25_index import build_bm25_index
@@ -68,6 +71,32 @@ def test_api_profile_query_returns_shortlist():
 
     assert response.status_code == 200
     assert "Possibly eligible" in response.json()["answer"]
+    app.dependency_overrides.clear()
+
+
+def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(backend.main, "_rag_index_cache", None)
+    monkeypatch.setattr(backend.main.config, "FAISS_INDEX_PATH", tmp_path / "missing.faiss")
+    monkeypatch.setattr(backend.main.config, "FAISS_METADATA_PATH", tmp_path / "missing.jsonl")
+
+    with pytest.raises(HTTPException) as excinfo:
+        get_rag_index()
+
+    assert excinfo.value.status_code == 503
+    assert "ingestion.build_index" in excinfo.value.detail
+
+
+def test_api_query_returns_503_when_index_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(backend.main, "_rag_index_cache", None)
+    monkeypatch.setattr(backend.main.config, "FAISS_INDEX_PATH", tmp_path / "missing.faiss")
+    monkeypatch.setattr(backend.main.config, "FAISS_METADATA_PATH", tmp_path / "missing.jsonl")
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("never used")
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
+
+    assert response.status_code == 503
+    assert "Knowledge base index not found" in response.json()["detail"]
     app.dependency_overrides.clear()
 
 
