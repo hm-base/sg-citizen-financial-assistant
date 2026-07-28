@@ -1,0 +1,32 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+FAISS_INDEX_PATH = DATA_DIR / "faiss" / "index.faiss"
+FAISS_METADATA_PATH = DATA_DIR / "faiss" / "metadata.jsonl"
+SOURCES_YAML_PATH = DATA_DIR / "sources.yaml"
+
+CHUNK_SIZE_WORDS = 350
+CHUNK_OVERLAP_WORDS = 50
+
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+TOP_K = 5
+SIMILARITY_THRESHOLD = 0.35
+RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "dense")
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GROK_API_KEY = os.getenv("GROK_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
+
+FALLBACK_MESSAGE = (
+    "The available knowledge base does not contain enough information "
+    "to answer this question."
+)
