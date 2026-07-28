@@ -156,6 +156,28 @@ def test_category_for_path_falls_back_to_uncategorized(tmp_path):
     assert category_for_path(root / "doc.pdf", root) == "Uncategorized"
 
 
+def test_category_for_path_falls_back_to_filename_keywords(tmp_path):
+    """Files dropped straight into data/raw/<modality>/ with no category
+    subfolder would otherwise all land in Uncategorized, silently switching off
+    profile re-ranking for them."""
+    root = tmp_path / "video"
+
+    assert category_for_path(root / "ComCare Financial Assistance.mp4", root) == (
+        "Lower-income/employment"
+    )
+    assert category_for_path(root / "Silver Support Explainer.mp4", root) == "Seniors"
+    assert category_for_path(root / "A guide for seniors (2025).mp4", root) == "Seniors"
+    assert category_for_path(root / "Preschool subsidy walkthrough.mp4", root) == "Family"
+
+
+def test_category_subfolder_beats_a_conflicting_filename_keyword(tmp_path):
+    """An explicit curator-chosen folder must win over the loose keyword guess."""
+    root = tmp_path / "video"
+    path = root / "elderly" / "ComCare walkthrough.mp4"
+
+    assert category_for_path(path, root) == "Seniors"
+
+
 def test_source_urls_from_sources_yaml_maps_doc_id_to_url(tmp_path):
     yaml_path = tmp_path / "sources.yaml"
     yaml_path.write_text(
@@ -197,3 +219,48 @@ def test_discovered_corpus_keeps_real_category_and_page_level_citations(nested_c
     assert text_records
     assert all(r["section_or_page"] != "Full document" for r in text_records)
     assert any(r["section_or_page"].startswith(("p.", "pp.")) for r in text_records)
+
+
+def test_discover_documents_reuses_cached_transcripts_across_runs(nested_corpus, tmp_path):
+    """A second build must not re-upload and re-transcribe an unchanged video."""
+    video_path = nested_corpus / "video" / "elderly" / "cpf-life-guide.mp4"
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.write_bytes(b"fake video bytes")
+    cache_dir = tmp_path / "processed"
+    client = FakeVideoClient("CPF LIFE pays monthly payouts for life from age sixty five.")
+
+    first = discover_documents(
+        nested_corpus, video_client=client, transcript_cache_dir=cache_dir
+    )
+    second = discover_documents(
+        nested_corpus, video_client=client, transcript_cache_dir=cache_dir
+    )
+
+    assert len(client.calls) == 1, "second run should have hit the transcript cache"
+    texts = [
+        {doc["doc_id"]: doc for doc in run}["cpf-life-guide"]["text"] for run in (first, second)
+    ]
+    assert texts[0] == texts[1]
+    assert (cache_dir / "cpf-life-guide.txt").exists()
+
+
+def test_discover_documents_indexes_videos_from_cache_with_no_client(nested_corpus, tmp_path):
+    """Once transcribed, re-indexing works offline without an API key."""
+    video_path = nested_corpus / "video" / "elderly" / "cpf-life-guide.mp4"
+    video_path.parent.mkdir(parents=True, exist_ok=True)
+    video_path.write_bytes(b"fake video bytes")
+    cache_dir = tmp_path / "processed"
+    cache_dir.mkdir()
+    (cache_dir / "cpf-life-guide.txt").write_text(
+        "CPF LIFE pays monthly payouts for life from age sixty five.", encoding="utf-8"
+    )
+
+    docs = {
+        doc["doc_id"]: doc
+        for doc in discover_documents(
+            nested_corpus, video_client=None, transcript_cache_dir=cache_dir
+        )
+    }
+
+    assert "CPF LIFE" in docs["cpf-life-guide"]["text"]
+    assert docs["cpf-life-guide"]["category"] == "Seniors"

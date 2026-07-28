@@ -37,15 +37,47 @@ CATEGORY_BY_FOLDER = {
 }
 
 
+#: Last-resort keyword fallback for files dropped straight into
+#: data/raw/<modality>/ with no category subfolder. Without it such files land in
+#: "Uncategorized", which silently switches off profile re-ranking for them.
+#: Ordered most- to least-specific; a category subfolder always wins over these.
+CATEGORY_BY_FILENAME_KEYWORD = (
+    ("comcare", "Lower-income/employment"),
+    ("caregiv", "Seniors/caregiving"),
+    ("silver support", "Seniors"),
+    ("elder", "Seniors"),
+    ("senior", "Seniors"),
+    ("efass", "Seniors"),
+    ("healthcare", "Healthcare"),
+    ("medisave", "Healthcare"),
+    ("medishield", "Healthcare"),
+    ("preschool", "Family"),
+    ("baby bonus", "Family"),
+    ("housing", "Housing"),
+    ("cost of living", "Household/cost-of-living"),
+)
+
+
 def category_for_path(path: Path, root: Path) -> str:
-    """Derive a category from the folder a document sits in, under `root`."""
+    """Derive a category for a document from its folder, then its filename.
+
+    A category subfolder under `root` is authoritative because a curator chose
+    it. Only when there is no recognised subfolder do we guess from filename
+    keywords, so a stray drop still re-ranks instead of going Uncategorized.
+    """
+    path = Path(path)
     try:
-        relative = Path(path).relative_to(root)
+        relative = path.relative_to(root)
     except ValueError:
         return "Uncategorized"
     for part in relative.parts[:-1]:
         category = CATEGORY_BY_FOLDER.get(part.lower())
         if category:
+            return category
+
+    stem = path.stem.replace("-", " ").replace("_", " ").lower()
+    for keyword, category in CATEGORY_BY_FILENAME_KEYWORD:
+        if keyword in stem:
             return category
     return "Uncategorized"
 
@@ -83,6 +115,7 @@ def discover_documents(
     *,
     source_urls: dict[str, str] | None = None,
     video_client=None,
+    transcript_cache_dir: Path | None = None,
 ) -> list[dict]:
     """Walk data/raw/ recursively and build one document dict per source file."""
     raw_dir = Path(raw_dir)
@@ -135,7 +168,7 @@ def discover_documents(
 
     video_dir = raw_dir / "video"
     video_paths = _files_under(video_dir, VIDEO_SUFFIXES)
-    if video_paths and video_client is None:
+    if video_paths and video_client is None and transcript_cache_dir is None:
         logger.warning(
             "Found %d video file(s) under %s but no transcription client was provided; "
             "skipping video ingestion.",
@@ -143,9 +176,13 @@ def discover_documents(
             video_dir,
         )
     elif video_paths:
+        # A cached transcript is reused without any Gemini call, so videos can
+        # still be indexed on a re-run even with no client available.
         for path in video_paths:
             try:
-                text = clean_text(transcribe_video(path, video_client))
+                text = clean_text(
+                    transcribe_video(path, video_client, cache_dir=transcript_cache_dir)
+                )
             except Exception:  # noqa: BLE001
                 logger.warning("Skipping untranscribable video: %s", path, exc_info=True)
                 continue
@@ -260,6 +297,7 @@ if __name__ == "__main__":
         config.DATA_DIR / "raw",
         source_urls=source_urls_from_sources_yaml(config.SOURCES_YAML_PATH),
         video_client=_video_client(),
+        transcript_cache_dir=config.DATA_DIR / "processed",
     )
     print(f"Discovered {len(documents)} documents under data/raw/")
 
