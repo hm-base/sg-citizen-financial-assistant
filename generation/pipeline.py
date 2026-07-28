@@ -17,16 +17,26 @@ class RagIndex:
     embedder: object
 
 
-def _retrieve(query: str, rag_index: RagIndex, top_k: int, retrieval_mode: str) -> list[tuple[int, float]]:
+def _retrieve(
+    query: str, rag_index: RagIndex, top_k: int, retrieval_mode: str
+) -> tuple[list[tuple[int, float]], float]:
+    """Returns (results_for_ranking, dense_top_score).
+
+    `results_for_ranking` is dense-only in "dense" mode, or RRF-fused with BM25
+    otherwise. `dense_top_score` is always the raw FAISS cosine-similarity top
+    score, which is the only score on the same scale as `similarity_threshold`
+    and must be used for the abstention gate regardless of retrieval mode.
+    """
     query_vector = embed_texts([query], rag_index.embedder)
     dense_results = search_faiss_index(rag_index.faiss_index, query_vector, top_k)
+    dense_top_score = dense_results[0][1] if dense_results else float("-inf")
 
     if retrieval_mode == "dense":
-        return dense_results
+        return dense_results, dense_top_score
 
     bm25_results = search_bm25_index(rag_index.bm25_index, query, top_k)
     fused = reciprocal_rank_fusion([dense_results, bm25_results])
-    return fused[:top_k]
+    return fused[:top_k], dense_top_score
 
 
 def _abstain_result() -> dict:
@@ -55,8 +65,8 @@ def answer_general_question(
     similarity_threshold: float,
     retrieval_mode: str,
 ) -> dict:
-    results = _retrieve(question, rag_index, top_k, retrieval_mode)
-    if not results or results[0][1] < similarity_threshold:
+    results, dense_top_score = _retrieve(question, rag_index, top_k, retrieval_mode)
+    if not results or dense_top_score < similarity_threshold:
         return _abstain_result()
 
     retrieved_records = [rag_index.chunk_records[idx] for idx, _ in results]
@@ -78,8 +88,8 @@ def answer_profile_question(
         f"Singapore subsidy eligibility and payout amounts for profile: {profile}"
     )
     candidate_pool_size = max(top_k * 3, 15)
-    candidates = _retrieve(query, rag_index, candidate_pool_size, retrieval_mode)
-    if not candidates or candidates[0][1] < similarity_threshold:
+    candidates, dense_top_score = _retrieve(query, rag_index, candidate_pool_size, retrieval_mode)
+    if not candidates or dense_top_score < similarity_threshold:
         return _abstain_result()
 
     preferred_categories = infer_preferred_categories(profile)

@@ -101,6 +101,26 @@ def test_answer_general_question_flags_citation_not_in_retrieved_sources():
     assert result["citation_warning"] == [("Made Up Scheme", "Nowhere")]
 
 
+def test_answer_general_question_hybrid_mode_does_not_abstain_on_relevant_query():
+    """Regression test: RRF-fused scores (~<=0.033) must not be compared directly
+    against similarity_threshold (calibrated for raw dense cosine scores ~0.0-1.0).
+    The abstention gate must use the dense score even in hybrid mode."""
+    rag_index = _build_rag_index()
+    llm_client = FakeLLMClient("You may get up to $850 [GST Voucher, FAQ].")
+
+    result = answer_general_question(
+        "gst voucher amount",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="hybrid",
+    )
+
+    assert result["abstained"] is False
+    assert result["answer"] == "You may get up to $850 [GST Voucher, FAQ]."
+
+
 def test_answer_profile_question_returns_grounded_shortlist():
     rag_index = _build_rag_index()
     llm_client = FakeLLMClient("Possibly eligible: GST Voucher [GST Voucher, FAQ].")
