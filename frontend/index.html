@@ -7,13 +7,26 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="prototype-banner">
+    <span class="tag">DEMO</span>
+    <span class="note">Answers are drawn from published scheme documents. Not an official government service.</span>
+  </div>
+
   <header class="app-header">
-    <h1>SG Citizen Financial Assistant</h1>
-    <div class="mode-toggle" role="tablist">
-      <button class="mode-btn active" data-mode="general" role="tab">General Q&amp;A</button>
-      <button class="mode-btn" data-mode="profile" role="tab">Personal Eligibility Shortlist</button>
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <h1>Subsidies &amp; tax reliefs assistant</h1>
+        <div class="subtitle">Singapore Citizen Financial Assistant</div>
+      </div>
     </div>
+    <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
   </header>
+
+  <div class="mode-toggle" role="tablist" aria-label="Assistant mode">
+    <button class="mode-btn active" data-mode="general" role="tab">General Q&amp;A</button>
+    <button class="mode-btn" data-mode="profile" role="tab">Personal eligibility shortlist</button>
+  </div>
 
   <main class="layout">
     <section class="input-panel">

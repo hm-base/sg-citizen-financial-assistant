@@ -1,5 +1,32 @@
 const state = { mode: "general" };
 
+const THEME_STORAGE_KEY = "sg-financial-assistant-theme";
+const themeToggleButton = document.getElementById("theme-toggle-button");
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  themeToggleButton.textContent = theme === "dark" ? "☀️ Light mode" : "🌙 Dark mode";
+}
+
+function initTheme() {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") {
+    applyTheme(stored);
+    return;
+  }
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+}
+
+themeToggleButton.addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const next = current === "dark" ? "light" : "dark";
+  applyTheme(next);
+  localStorage.setItem(THEME_STORAGE_KEY, next);
+});
+
+initTheme();
+
 const generalPanel = document.getElementById("general-panel");
 const profilePanel = document.getElementById("profile-panel");
 const modeButtons = document.querySelectorAll(".mode-btn");
