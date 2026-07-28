@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SG Citizen Financial Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>SG Citizen Financial Assistant</h1>
+    <div class="mode-toggle" role="tablist">
+      <button class="mode-btn active" data-mode="general" role="tab">General Q&amp;A</button>
+      <button class="mode-btn" data-mode="profile" role="tab">Personal Eligibility Shortlist</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="input-panel">
+      <div id="general-panel" class="mode-panel">
+        <label for="question-input">Ask a question about subsidies or tax reliefs</label>
+        <textarea id="question-input" rows="3" placeholder="e.g. How much CDC Voucher will a household get?"></textarea>
+        <button id="ask-button" class="primary-btn">Ask</button>
+      </div>
+
+      <div id="profile-panel" class="mode-panel hidden">
+        <label>Citizenship
+          <select id="profile-citizenship">
+            <option>Singapore Citizen</option>
+            <option>PR</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>Age <input id="profile-age" type="number" min="0" max="120" /></label>
+        <label>Household size <input id="profile-household-size" type="number" min="1" max="20" /></label>
+        <label>Monthly income band
+          <select id="profile-income-band">
+            <option>&lt;$1.5k</option>
+            <option>$1.5-3k</option>
+            <option>$3-6k</option>
+            <option>&gt;$6k</option>
+            <option>Prefer not to say</option>
+          </select>
+        </label>
+        <label>Housing
+          <select id="profile-housing">
+            <option>HDB</option>
+            <option>Private</option>
+            <option>Rental</option>
+            <option>Other</option>
+            <option>Prefer not to say</option>
+          </select>
+        </label>
+        <label>Employment
+          <select id="profile-employment">
+            <option>Employed</option>
+            <option>Self-employed</option>
+            <option>Unemployed</option>
+            <option>Retired</option>
+            <option>Student</option>
+          </select>
+        </label>
+        <fieldset class="tags">
+          <legend>Life stage</legend>
+          <label><input type="checkbox" value="Has young child(ren)" class="life-stage-tag" /> Has young child(ren)</label>
+          <label><input type="checkbox" value="Caregiver" class="life-stage-tag" /> Caregiver</label>
+          <label><input type="checkbox" value="Senior (65+)" class="life-stage-tag" /> Senior (65+)</label>
+          <label><input type="checkbox" value="PWD in household" class="life-stage-tag" /> PWD in household</label>
+        </fieldset>
+        <label for="profile-question">Optional question</label>
+        <textarea id="profile-question" rows="2" placeholder="Leave blank for a general shortlist"></textarea>
+        <button id="profile-button" class="primary-btn">Get shortlist</button>
+      </div>
+
+      <details class="advanced-panel">
+        <summary>Advanced (demo controls)</summary>
+        <label>Top K <input id="control-top-k" type="number" min="1" max="20" value="5" /></label>
+        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" value="0.35" /></label>
+        <label>Retrieval mode
+          <select id="control-mode">
+            <option value="dense">Dense (baseline)</option>
+            <option value="hybrid">Hybrid (improved)</option>
+          </select>
+        </label>
+      </details>
+    </section>
+
+    <section class="answer-panel">
+      <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
+      <div id="answer-text" class="answer-text" aria-live="polite"></div>
+      <h2>Sources</h2>
+      <ul id="sources-list" class="sources-list"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
