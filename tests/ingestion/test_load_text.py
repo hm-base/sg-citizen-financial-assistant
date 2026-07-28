@@ -3,7 +3,13 @@ from pathlib import Path
 import pytest
 from fpdf import FPDF
 
-from ingestion.load_text import clean_text, extract_html_text, extract_pdf_text, load_text_file
+from ingestion.load_text import (
+    clean_text,
+    extract_html_text,
+    extract_pdf_pages,
+    extract_pdf_text,
+    load_text_file,
+)
 
 
 @pytest.fixture
@@ -31,6 +37,22 @@ def sample_html(tmp_path: Path) -> Path:
 def test_extract_pdf_text_returns_content(sample_pdf):
     text = extract_pdf_text(sample_pdf)
     assert "Baby Bonus" in text
+
+
+def test_extract_pdf_pages_returns_one_entry_per_page(tmp_path):
+    pdf = FPDF()
+    pdf.set_font("Helvetica", size=12)
+    for page_text in ("Page one about ComCare.", "Page two about Silver Support."):
+        pdf.add_page()
+        pdf.multi_cell(0, 10, page_text)
+    path = tmp_path / "two_pages.pdf"
+    pdf.output(str(path))
+
+    pages = extract_pdf_pages(path)
+
+    assert len(pages) == 2
+    assert "ComCare" in pages[0]
+    assert "Silver Support" in pages[1]
 
 
 def test_extract_html_text_strips_tags(sample_html):

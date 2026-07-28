@@ -1,6 +1,13 @@
 from pathlib import Path
+from typing import Protocol
 
 from google import genai
+
+
+class GenAISdkClient(Protocol):
+    def generate_content(self, model: str, contents): ...
+
+    def upload_file(self, path): ...
 
 
 class GeminiClient:
@@ -17,7 +24,17 @@ class GeminiClient:
         return response.text
 
     def transcribe(self, video_path: Path, prompt: str) -> str:
-        response = self._sdk_client.generate_content(self.model_name, prompt)
+        """Upload the video and transcribe it.
+
+        The video must be attached to the request — prompting without it would
+        make the model fabricate a transcript that later gets ingested as if it
+        were grounded evidence.
+        """
+        video_path = Path(video_path)
+        if not video_path.exists():
+            raise FileNotFoundError(f"Video file not found: {video_path}")
+        uploaded_file = self._sdk_client.upload_file(video_path)
+        response = self._sdk_client.generate_content(self.model_name, [uploaded_file, prompt])
         return response.text
 
 
@@ -27,3 +44,6 @@ class _RealGenAIAdapter:
 
     def generate_content(self, model: str, contents):
         return self.client.models.generate_content(model=model, contents=contents)
+
+    def upload_file(self, path):
+        return self.client.files.upload(file=str(path))

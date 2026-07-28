@@ -5,13 +5,14 @@ import pdfplumber
 from bs4 import BeautifulSoup
 
 
-def extract_pdf_text(path: Path) -> str:
-    parts = []
+def extract_pdf_pages(path: Path) -> list[str]:
+    """Extract text page by page, so chunk citations can carry real page numbers."""
     with pdfplumber.open(str(path)) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text() or ""
-            parts.append(page_text)
-    return "\n".join(parts)
+        return [page.extract_text() or "" for page in pdf.pages]
+
+
+def extract_pdf_text(path: Path) -> str:
+    return "\n".join(extract_pdf_pages(path))
 
 
 def extract_html_text(path: Path) -> str:
