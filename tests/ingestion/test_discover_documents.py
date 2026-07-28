@@ -5,6 +5,7 @@ from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
 
 from ingestion.build_index import (
+    _scheme_name,
     build_index_from_documents,
     category_for_path,
     discover_documents,
@@ -147,6 +148,17 @@ def test_video_transcripts_are_chunked_and_indexed_like_text(nested_corpus):
     assert video_records
     assert video_records[0]["section_or_page"] == "Video transcript"
     assert video_records[0]["doc_id"] == "cpf-life-guide"
+
+
+def test_scheme_name_collapses_separator_runs_into_a_single_space(tmp_path):
+    """A filename like 'ElderFund - AIC.pdf' must not become 'Elderfund   Aic'
+    (multiple spaces): the LLM naturally collapses whitespace when it echoes a
+    scheme name into a citation, so a stored name with doubled spaces can never
+    match the citation and always trips a false 'unverified citation' warning."""
+    assert _scheme_name(tmp_path / "ElderFund - AIC.pdf") == "Elderfund Aic"
+    assert _scheme_name(tmp_path / "comcare__long_term-assistance.pdf") == (
+        "Comcare Long Term Assistance"
+    )
 
 
 def test_category_for_path_falls_back_to_uncategorized(tmp_path):

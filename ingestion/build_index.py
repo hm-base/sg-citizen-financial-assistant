@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from pathlib import Path
 
 from config import CHUNK_OVERLAP_WORDS, CHUNK_SIZE_WORDS
@@ -97,7 +98,8 @@ def source_urls_from_sources_yaml(path: Path) -> dict[str, str]:
 
 
 def _scheme_name(path: Path) -> str:
-    return path.stem.replace("-", " ").replace("_", " ").title()
+    spaced = path.stem.replace("-", " ").replace("_", " ")
+    return re.sub(r"\s+", " ", spaced).strip().title()
 
 
 def _files_under(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
