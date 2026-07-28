@@ -4,9 +4,9 @@ import numpy as np
 
 from generation.pipeline import (
     RagIndex,
+    _retrieve,
     answer_general_question,
     answer_profile_question,
-    dense_score_for_chunk,
 )
 from retrieval.bm25_index import build_bm25_index
 from retrieval.faiss_index import build_faiss_index
@@ -175,12 +175,13 @@ def _build_fusion_rag_index():
     )
 
 
-def test_hybrid_gate_uses_dense_score_of_the_top_ranked_fused_chunk():
-    """The gate must follow the chunk that actually leads the generated context.
+def test_hybrid_reranking_does_not_lower_the_abstention_gate():
+    """Hybrid must not abstain where dense answers, even when fusion reorders.
 
-    Dense top-1 (row 0, cosine 1.0) is not what fusion puts first — row 2
-    (cosine 0.85) is — so with a 0.9 threshold dense mode answers while hybrid
-    mode abstains, because the chunk carrying the answer is below threshold.
+    Fusion puts row 2 (cosine 0.85) ahead of dense top-1 (row 0, cosine 1.0),
+    but row 0 is still in the fused context, so the best dense evidence
+    available to the answer is unchanged at 1.0. A 0.9 threshold must therefore
+    let *both* modes answer; only the ranking differs.
     """
     rag_index = _build_fusion_rag_index()
 
@@ -203,11 +204,13 @@ def test_hybrid_gate_uses_dense_score_of_the_top_ranked_fused_chunk():
 
     assert dense_result["abstained"] is False
     assert dense_result["sources"][0]["chunk_id"] == "household-support_text_000"
-    assert hybrid_result["abstained"] is True
+    # Same gate decision, different ranking — that is the whole point of hybrid.
+    assert hybrid_result["abstained"] is False
+    assert hybrid_result["sources"][0]["chunk_id"] == "gst-voucher_text_002"
 
 
-def test_hybrid_mode_answers_when_the_fused_top_chunk_clears_the_threshold():
-    """Same fusion ordering, threshold below the fused top-1's own cosine score."""
+def test_hybrid_mode_answers_when_the_fused_set_clears_the_threshold():
+    """Same fusion ordering, threshold below every candidate's cosine score."""
     rag_index = _build_fusion_rag_index()
     llm_client = FakeLLMClient("The amount table is here [GST Voucher, p.3].")
 
@@ -225,21 +228,42 @@ def test_hybrid_mode_answers_when_the_fused_top_chunk_clears_the_threshold():
     assert result["citation_warning"] == []
 
 
-def test_dense_score_for_chunk_returns_cosine_of_that_specific_row():
-    rag_index = _build_fusion_rag_index()
-    query_vector = np.array([[1.0, 0.0]], dtype=np.float32)
+def test_hybrid_gate_is_never_below_the_dense_gate():
+    """The core guarantee: hybrid can never be more abstention-prone than dense.
 
-    assert dense_score_for_chunk(rag_index.faiss_index, query_vector, 2) == np.float32(0.85)
+    Randomised over index size, top_k and vector geometry, the hybrid gate must
+    equal the dense gate — the fused set always retains the dense top-1 chunk,
+    so the maximum dense cosine in context is identical in both modes.
+    """
+    rng = np.random.default_rng(20260728)
 
+    for _ in range(300):
+        n_chunks = int(rng.integers(1, 40))
+        top_k = int(rng.integers(1, 12))
+        vectors = rng.normal(size=(n_chunks, 8)).astype(np.float32)
+        vectors /= np.linalg.norm(vectors, axis=1, keepdims=True)
+        texts = [
+            " ".join(rng.choice(["gst", "voucher", "amount", "cash", "senior", "payout"], size=6))
+            for _ in range(n_chunks)
+        ]
+        query_vector = rng.normal(size=(1, 8)).astype(np.float32)
+        query_vector /= np.linalg.norm(query_vector)
 
-def test_dense_score_for_chunk_returns_negative_infinity_when_unreconstructable():
-    class NoReconstructIndex:
-        def reconstruct(self, row_index):
-            raise RuntimeError("reconstruct not supported")
+        class FixedEmbedder:
+            def encode(self, texts_, **kwargs):
+                return np.repeat(query_vector, len(texts_), axis=0)
 
-    query_vector = np.array([[1.0, 0.0]], dtype=np.float32)
+        rag_index = RagIndex(
+            faiss_index=build_faiss_index(vectors),
+            bm25_index=build_bm25_index(texts),
+            chunk_records=[{"text": text} for text in texts],
+            embedder=FixedEmbedder(),
+        )
 
-    assert dense_score_for_chunk(NoReconstructIndex(), query_vector, 0) == float("-inf")
+        _, dense_gate = _retrieve("gst voucher amount", rag_index, top_k, "dense")
+        _, hybrid_gate = _retrieve("gst voucher amount", rag_index, top_k, "hybrid")
+
+        assert hybrid_gate >= dense_gate - 1e-6, (n_chunks, top_k, dense_gate, hybrid_gate)
 
 
 def test_answer_general_question_attaches_retrieval_scores_to_sources():

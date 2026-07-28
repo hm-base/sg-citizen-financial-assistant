@@ -1,3 +1,5 @@
+import random
+
 from retrieval.hybrid import reciprocal_rank_fusion
 
 
@@ -56,3 +58,28 @@ def test_reciprocal_rank_fusion_unequal_length_lists():
         f"Row 2 (in both lists) score {fused_dict[2]:.4f} should be > "
         f"row 3 (dense only) score {fused_dict[3]:.4f}"
     )
+
+
+def test_first_list_top_item_is_never_truncated_out_of_the_fused_top_k():
+    """Invariant the abstention gate in generation.pipeline._retrieve relies on.
+
+    The dense top-1 chunk must always survive `fused[:top_k]`, otherwise the
+    hybrid gate (max dense cosine over the fused set) could fall below the dense
+    gate. It holds because only chunks present in *both* input lists can outscore
+    a rank-0 item, and there are at most top_k-1 of those when the rank-0 item is
+    absent from the second list.
+    """
+    rng = random.Random(20260728)
+
+    for _ in range(3000):
+        top_k = rng.randint(1, 70)
+        pool = 200
+        dense = rng.sample(range(pool), min(top_k, pool))
+        bm25 = rng.sample(range(pool), min(top_k, pool))
+
+        fused = reciprocal_rank_fusion([
+            [(i, 0.0) for i in dense],
+            [(i, 0.0) for i in bm25],
+        ])[:top_k]
+
+        assert dense[0] in [idx for idx, _ in fused], (top_k, dense, bm25)

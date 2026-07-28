@@ -1,8 +1,6 @@
 import logging
 from dataclasses import dataclass
 
-import numpy as np
-
 from config import FALLBACK_MESSAGE
 from generation.prompts import build_general_qa_prompt, build_profile_prompt, extract_cited_scheme_labels
 from retrieval.bm25_index import search_bm25_index
@@ -22,32 +20,38 @@ class RagIndex:
     embedder: object
 
 
-def dense_score_for_chunk(faiss_index, query_vector: np.ndarray, row_index: int) -> float:
-    """Cosine similarity between the query and one specific indexed chunk.
-
-    Vectors are stored L2-normalised in an IndexFlatIP, so the inner product of
-    the reconstructed chunk vector with the query vector *is* the cosine score,
-    on exactly the same scale as `similarity_threshold`.
-    """
-    try:
-        chunk_vector = faiss_index.reconstruct(int(row_index))
-    except Exception:  # noqa: BLE001 - index type may not support reconstruction
-        return float("-inf")
-    return float(np.dot(np.asarray(query_vector[0], dtype=np.float32),
-                        np.asarray(chunk_vector, dtype=np.float32)))
-
-
 def _retrieve(
     query: str, rag_index: RagIndex, top_k: int, retrieval_mode: str
 ) -> tuple[list[tuple[int, float]], float]:
     """Returns (results_for_ranking, gate_score).
 
     `results_for_ranking` is dense-only in "dense" mode, or RRF-fused with BM25
-    otherwise. `gate_score` is always a raw dense cosine similarity — the only
-    scale comparable to `similarity_threshold` (RRF scores are ~<=0.033) — but it
-    is the cosine score of the *top-ranked returned chunk*, so in hybrid mode a
-    BM25-surfaced chunk carries the gate for the answer it actually grounds,
-    rather than a dense top-1 chunk that fusion may have dropped from the context.
+    otherwise.
+
+    `gate_score` is always a raw dense cosine similarity, because that is the
+    only scale comparable to `similarity_threshold` (RRF scores are ~<=0.033).
+    Specifically it is the *maximum* dense cosine over the chunks actually
+    returned in context — i.e. the best real dense evidence the answer is
+    allowed to draw on, which is how spec §5.2's "top retrieved similarity
+    score" is meant. Taking the maximum over the whole returned set, rather than
+    the cosine of whichever chunk happens to rank first, is what makes hybrid
+    mode's gate provably equal to dense mode's:
+
+    - Dense mode's gate is the dense top-1 cosine.
+    - Under RRF, the dense top-1 chunk can never be truncated out of the fused
+      top-k. It scores at least 1/(k_rrf+1); the only chunks that can outscore
+      that are ones appearing in *both* input lists, and if the dense top-1 is
+      absent from the BM25 list there are at most top_k-1 such chunks. So it
+      always lands within the first top_k fused slots and its cosine is always
+      in the max below.
+
+    Consequence, stated plainly: under exhaustive IndexFlatIP search plus RRF,
+    "hybrid rescues a query that dense abstains on" is not achievable by
+    construction — the two modes always make the identical gate decision. The
+    gate's only job here is to guarantee hybrid is never *more* abstention-prone
+    than dense. Hybrid's actual benefit is re-ranking what reaches the prompt,
+    and must be demonstrated with Hit Rate / Recall / MRR in the evaluation, not
+    with abstention behaviour.
     """
     query_vector = embed_texts([query], rag_index.embedder)
     dense_results = search_faiss_index(rag_index.faiss_index, query_vector, top_k)
@@ -58,15 +62,16 @@ def _retrieve(
 
     bm25_results = search_bm25_index(rag_index.bm25_index, query, top_k)
     fused = reciprocal_rank_fusion([dense_results, bm25_results])[:top_k]
-    if not fused:
-        return fused, float("-inf")
 
-    top_row_index = fused[0][0]
+    # BM25-only chunks have no dense cosine and simply do not vote on the gate;
+    # they can add evidence to the prompt but never withhold it.
     dense_scores_by_row = dict(dense_results)
-    if top_row_index in dense_scores_by_row:
-        gate_score = dense_scores_by_row[top_row_index]
-    else:
-        gate_score = dense_score_for_chunk(rag_index.faiss_index, query_vector, top_row_index)
+    dense_scores_in_context = [
+        dense_scores_by_row[row_index]
+        for row_index, _fused_score in fused
+        if row_index in dense_scores_by_row
+    ]
+    gate_score = max(dense_scores_in_context) if dense_scores_in_context else float("-inf")
     return fused, gate_score
 
 
