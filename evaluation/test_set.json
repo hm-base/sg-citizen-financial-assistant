@@ -1,0 +1,143 @@
+[
+  {
+    "id": "F1",
+    "category": "factual",
+    "question": "How much does each eligible Singaporean household get from CDC Vouchers, and where can they be spent?",
+    "expected_answer_criteria": "States the voucher value per household and that they can be spent at participating hawkers/heartland merchants/supermarkets.",
+    "expected_source_doc_ids": ["cdc-vouchers"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "F2",
+    "category": "factual",
+    "question": "What is the maximum claimable cap for total personal income tax reliefs?",
+    "expected_answer_criteria": "States the $80,000 overall personal income tax relief cap.",
+    "expected_source_doc_ids": ["iras-tax-reliefs"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "F3",
+    "category": "factual",
+    "question": "What is the Silver Support Scheme payout frequency?",
+    "expected_answer_criteria": "States that payouts are quarterly, and mentions the eligibility tiers by Assessable Income/AV/household support.",
+    "expected_source_doc_ids": ["silver-support"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "P1",
+    "category": "paraphrase",
+    "question": "My mother lives with me and has no job. Can I reduce my tax bill because of her?",
+    "expected_answer_criteria": "Identifies Parent Relief as the relevant relief and states its qualifying conditions (e.g. income/age of dependent, cohabitation).",
+    "expected_source_doc_ids": ["iras-tax-reliefs"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "P2",
+    "category": "paraphrase",
+    "question": "I'm a working mum with a young kid — is there a tax break for that?",
+    "expected_answer_criteria": "Identifies Working Mother's Child Relief (WMCR) and its qualifying conditions.",
+    "expected_source_doc_ids": ["iras-tax-reliefs"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "P3",
+    "category": "paraphrase",
+    "question": "I put extra money into my CPF for retirement — do I get anything back on tax?",
+    "expected_answer_criteria": "Identifies CPF top-up / SRS-related relief and its qualifying conditions.",
+    "expected_source_doc_ids": ["iras-tax-reliefs", "cpf-matched-retirement-savings"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "M1",
+    "category": "multi_document",
+    "question": "What financial support (cash payouts and tax savings) can a working mother with a young child get from the government?",
+    "expected_answer_criteria": "Combines Assurance Package/GST Voucher cash payouts with Working Mother's Child Relief and Child Relief, citing both a Govbenefits-style scheme doc and the IRAS reliefs doc.",
+    "expected_source_doc_ids": ["gst-voucher", "iras-tax-reliefs"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "M2",
+    "category": "multi_document",
+    "question": "What can a low-income retired senior living in a rental flat get from the government?",
+    "expected_answer_criteria": "Combines Silver Support Scheme and ComCare Assistance, citing both scheme docs.",
+    "expected_source_doc_ids": ["silver-support", "comcare-assistance"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "U1",
+    "category": "unanswerable",
+    "question": "Can I use my CDC vouchers to pay for my IRAS income tax bill?",
+    "expected_answer_criteria": "Must trigger the exact fallback: \"The available knowledge base does not contain enough information to answer this question.\"",
+    "expected_source_doc_ids": [],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "U2",
+    "category": "unanswerable",
+    "question": "Can I claim tax relief for taking care of my pet dog?",
+    "expected_answer_criteria": "Must trigger the exact fallback: \"The available knowledge base does not contain enough information to answer this question.\"",
+    "expected_source_doc_ids": [],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "A1",
+    "category": "ambiguous",
+    "question": "How much money will I get from the government this year?",
+    "expected_answer_criteria": "Should not fabricate a single number; should ask for or note the missing inputs it needs (age, income, property AV, citizenship) before giving a number, or abstain/qualify heavily.",
+    "expected_source_doc_ids": [],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "A2",
+    "category": "ambiguous",
+    "question": "Am I eligible for Workfare?",
+    "expected_answer_criteria": "Should note that eligibility depends on age, income, and employment type, and not assert a definite yes/no without those inputs.",
+    "expected_source_doc_ids": ["workfare-income-supplement"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "PR1",
+    "category": "profile",
+    "profile": {
+      "citizenship": "Singapore Citizen",
+      "age": 68,
+      "monthly_income_band": "<$1.5k",
+      "housing": "HDB",
+      "employment": "Retired",
+      "life_stage_tags": ["Senior (65+)"]
+    },
+    "expected_answer_criteria": "Shortlist should surface Silver Support and cost-of-living schemes as 'Possibly eligible', citing amounts only if stated in evidence.",
+    "expected_source_doc_ids": ["silver-support", "gst-voucher"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "PR2",
+    "category": "profile",
+    "profile": {
+      "citizenship": "Singapore Citizen",
+      "age": 32,
+      "monthly_income_band": "$3-6k",
+      "housing": "HDB",
+      "employment": "Employed",
+      "life_stage_tags": ["Has young child(ren)"]
+    },
+    "expected_answer_criteria": "Shortlist should surface Baby Bonus / family-oriented schemes as 'Possibly eligible' and not assert senior schemes as eligible.",
+    "expected_source_doc_ids": ["baby-bonus-scheme"],
+    "expected_relevant_chunk_ids": []
+  },
+  {
+    "id": "PR3",
+    "category": "profile",
+    "profile": {
+      "citizenship": "PR",
+      "age": 40,
+      "monthly_income_band": "Prefer not to say",
+      "housing": "Private",
+      "employment": "Employed",
+      "life_stage_tags": []
+    },
+    "expected_answer_criteria": "Heavy 'Likely not eligible / unclear' due to PR status and undisclosed income on citizen-only/income-gated schemes.",
+    "expected_source_doc_ids": [],
+    "expected_relevant_chunk_ids": []
+  }
+]
