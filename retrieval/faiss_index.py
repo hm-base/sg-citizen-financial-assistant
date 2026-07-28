@@ -24,6 +24,10 @@ def search_faiss_index(
     index: faiss.IndexFlatIP, query_vector: np.ndarray, top_k: int
 ) -> list[tuple[int, float]]:
     safe_k = min(top_k, index.ntotal)
+    if safe_k <= 0:
+        # faiss asserts on k <= 0, which would surface as a 500; an empty result
+        # set is the honest answer and lets the caller abstain normally.
+        return []
     scores, indices = index.search(query_vector, safe_k)
     return [
         (int(idx), float(score))

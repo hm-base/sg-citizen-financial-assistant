@@ -49,6 +49,16 @@ def get_llm_client():
     return GeminiClient(api_key=config.GEMINI_API_KEY, model_name=config.GEMINI_MODEL)
 
 
+def _override(requested, default):
+    """Use a caller-supplied value whenever one was actually supplied.
+
+    `requested or default` would silently discard an explicit 0 / 0.0 — a
+    similarity_threshold of 0 ("never abstain") is a legitimate experiment
+    setting, not an absent one.
+    """
+    return default if requested is None else requested
+
+
 class QueryRequest(BaseModel):
     question: str
     top_k: int | None = None
@@ -74,9 +84,9 @@ def query(
         request.question,
         rag_index,
         llm_client,
-        top_k=request.top_k or config.TOP_K,
-        similarity_threshold=request.similarity_threshold or config.SIMILARITY_THRESHOLD,
-        retrieval_mode=request.retrieval_mode or config.RETRIEVAL_MODE,
+        top_k=_override(request.top_k, config.TOP_K),
+        similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
+        retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
     )
 
 
@@ -91,9 +101,9 @@ def profile_query(
         rag_index,
         llm_client,
         free_text_question=request.free_text_question,
-        top_k=request.top_k or config.TOP_K,
-        similarity_threshold=request.similarity_threshold or config.SIMILARITY_THRESHOLD,
-        retrieval_mode=request.retrieval_mode or config.RETRIEVAL_MODE,
+        top_k=_override(request.top_k, config.TOP_K),
+        similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
+        retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
     )
 
 
@@ -107,10 +117,28 @@ def get_config():
     }
 
 
-_raw_dir = config.DATA_DIR / "raw"
-if _raw_dir.exists():
-    # Serves source infographics so the sources panel can show thumbnails.
-    app.mount("/media", StaticFiles(directory=str(_raw_dir)), name="media")
+def mount_media(target_app: FastAPI, raw_dir: Path) -> bool:
+    """Mount only data/raw/images/ so the sources panel can show thumbnails.
+
+    Scoped to the images subtree on purpose: mounting all of data/raw/ would
+    publish the whole corpus — source PDFs and videos included — as arbitrary
+    static downloads, when the UI only ever requests infographic thumbnails.
+
+    Mounted at /media/images so the on-disk-path-to-URL mapping in
+    frontend/app.js (`.../raw/<rest>` -> `/media/<rest>`) still resolves, while
+    any non-image path under it simply has no route and 404s.
+
+    Returns whether the mount was registered; a machine that has not ingested
+    anything yet has no data/raw/ and must still start.
+    """
+    images_dir = Path(raw_dir) / "images"
+    if not images_dir.exists():
+        return False
+    target_app.mount("/media/images", StaticFiles(directory=str(images_dir)), name="media")
+    return True
+
+
+mount_media(app, config.DATA_DIR / "raw")
 
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if _frontend_dir.exists():

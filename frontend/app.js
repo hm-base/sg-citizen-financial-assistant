@@ -46,7 +46,11 @@ const thresholdInput = document.getElementById("control-threshold");
 const modeSelect = document.getElementById("control-mode");
 const providerIndicator = document.getElementById("provider-indicator");
 
-// Defaults live in config.py; the UI must not hardcode its own copies.
+// Defaults live in config.py; these are only a last resort for when /api/config
+// is unreachable, so the Advanced panel still shows usable numbers instead of
+// blank inputs that would post NaN.
+const OFFLINE_FALLBACK_CONFIG = { top_k: 5, similarity_threshold: 0.35 };
+
 async function initConfig() {
   try {
     const response = await fetch("/api/config");
@@ -63,6 +67,10 @@ async function initConfig() {
       providerIndicator.classList.remove("hidden");
     }
   } catch (error) {
+    if (!topKInput.value) topKInput.value = OFFLINE_FALLBACK_CONFIG.top_k;
+    if (!thresholdInput.value) {
+      thresholdInput.value = OFFLINE_FALLBACK_CONFIG.similarity_threshold;
+    }
     providerIndicator.textContent = "LLM: unavailable";
     providerIndicator.classList.remove("hidden");
   }

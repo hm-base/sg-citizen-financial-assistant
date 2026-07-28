@@ -34,3 +34,13 @@ def test_save_and_load_faiss_index_roundtrips(tmp_path):
 
     assert loaded.ntotal == index.ntotal
     assert loaded.d == index.d
+
+
+def test_search_faiss_index_returns_empty_for_non_positive_top_k():
+    """faiss asserts on k <= 0; a caller-supplied top_k of 0 must not 500."""
+    import numpy as np
+
+    index = build_faiss_index(np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32))
+    query_vector = np.array([[1.0, 0.0]], dtype=np.float32)
+
+    assert search_faiss_index(index, query_vector, 0) == []
