@@ -40,3 +40,13 @@ def test_extract_cited_scheme_labels_parses_bracketed_citations():
 
     assert ("Baby Bonus Scheme", "Eligibility, p.2") in labels
     assert ("CDC Vouchers", "FAQ") in labels
+
+
+def test_extract_cited_scheme_labels_splits_multi_source_citations():
+    answer = "Combined support [Scheme A, pp.2-4; Scheme B, Video transcript] is available."
+
+    labels = extract_cited_scheme_labels(answer)
+
+    assert ("Scheme A", "pp.2-4") in labels
+    assert ("Scheme B", "Video transcript") in labels
+    assert len(labels) == 2

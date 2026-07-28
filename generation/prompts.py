@@ -63,4 +63,10 @@ def build_profile_prompt(profile: dict, retrieved: list[dict], free_text_questio
 
 
 def extract_cited_scheme_labels(answer: str) -> list[tuple[str, str]]:
-    return re.findall(r"\[([^\[\],]+),\s*([^\[\]]+)\]", answer)
+    labels = []
+    for bracket_content in re.findall(r"\[([^\[\]]+)\]", answer):
+        for segment in bracket_content.split(";"):
+            name, sep, location = segment.strip().partition(",")
+            if sep:
+                labels.append((name.strip(), location.strip()))
+    return labels
