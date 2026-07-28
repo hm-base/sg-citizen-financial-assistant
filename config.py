@@ -23,7 +23,16 @@ RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "dense")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROK_API_KEY = os.getenv("GROK_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+# Pinned Gemini generation names get retired out from under this project:
+# gemini-1.5-flash now 404s ("not found for API version v1beta") and even
+# gemini-2.5-flash 404s for keys created after its cutoff ("no longer available
+# to new users"). Note that models.list() still advertises names that
+# generate_content rejects, so listing is not a safe way to pick one.
+# `gemini-flash-latest` is a stable, non-preview alias that Google re-points at
+# the current Flash model, so it is the only default immune to that failure
+# mode. Pin a specific version via the GEMINI_MODEL env var when reproducibility
+# matters more than availability (e.g. gemini-3.6-flash, gemini-3.5-flash-lite).
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
 
 FALLBACK_MESSAGE = (
