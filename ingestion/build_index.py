@@ -58,6 +58,7 @@ CATEGORY_BY_FOLDER = {
     "chas": "Healthcare",
     "col": "Household/cost-of-living",
     "gstv": "Household/cost-of-living",
+    "cdc": "Household/cost-of-living",
 }
 
 
