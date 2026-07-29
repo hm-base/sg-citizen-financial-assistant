@@ -141,6 +141,8 @@ def profile_query(
             status_code=502,
             detail="The assistant returned an invalid response; please try again.",
         )
+    except LLM_PROVIDER_ERRORS:
+        raise HTTPException(status_code=503, detail=LLM_PROVIDER_ERROR_DETAIL)
 
 
 @app.get("/api/config")

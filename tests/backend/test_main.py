@@ -99,6 +99,62 @@ def test_api_profile_query_returns_502_when_llm_never_returns_valid_json():
     app.dependency_overrides.clear()
 
 
+class RaisingLLMClient:
+    """Simulates a provider SDK raising its own exception type on generate()."""
+
+    def __init__(self, exc: Exception):
+        self.exc = exc
+
+    def generate(self, prompt: str) -> str:
+        raise self.exc
+
+
+def _groq_rate_limit_error():
+    import httpx
+    from openai import APIStatusError
+
+    response = httpx.Response(
+        429, request=httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    )
+    return APIStatusError("rate limited", response=response, body=None)
+
+
+def _gemini_quota_error():
+    from google.genai.errors import ClientError
+
+    return ClientError(429, {"error": {"message": "quota exceeded"}})
+
+
+@pytest.mark.parametrize("make_error", [_groq_rate_limit_error, _gemini_quota_error])
+def test_api_query_returns_503_when_llm_provider_errors(make_error):
+    """A provider-side rate limit/quota error must surface as a clear 503, not
+    an unhandled 500 with a raw traceback and no actionable message."""
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_client] = lambda: RaisingLLMClient(make_error())
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
+
+    assert response.status_code == 503
+    assert "rate limit or quota" in response.json()["detail"]
+    app.dependency_overrides.clear()
+
+
+def test_api_profile_query_returns_503_when_llm_provider_errors():
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_client] = lambda: RaisingLLMClient(_groq_rate_limit_error())
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post(
+        "/api/profile-query",
+        json={"profile": {"age": 68, "life_stage_tags": []}, "free_text_question": "GST voucher amount"},
+    )
+
+    assert response.status_code == 503
+    assert "rate limit or quota" in response.json()["detail"]
+    app.dependency_overrides.clear()
+
+
 def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(backend.main, "_rag_index_cache", None)
     monkeypatch.setattr(backend.main.config, "FAISS_INDEX_PATH", tmp_path / "missing.faiss")
