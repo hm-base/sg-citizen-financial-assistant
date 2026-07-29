@@ -644,6 +644,77 @@ function renderShortlistEntry(entry) {
   return card;
 }
 
+function renderShortlistInfoBanner() {
+  const banner = document.createElement("div");
+  banner.className = "shortlist-info-banner";
+  const title = document.createElement("strong");
+  title.textContent = "This is a shortlist to check, not an approval.";
+  banner.appendChild(title);
+  const body = document.createElement("p");
+  body.textContent =
+    "Every scheme below is grouped by how closely your answers match the conditions stated in its source document. Applying and being assessed by the agency is still required.";
+  banner.appendChild(body);
+  return banner;
+}
+
+function renderShortlistEmptyState() {
+  const empty = document.createElement("div");
+  empty.className = "shortlist-empty-state";
+  const line1 = document.createElement("p");
+  line1.textContent = "No scheme in the document set matched your answers.";
+  empty.appendChild(line1);
+  const line2 = document.createElement("p");
+  line2.className = "shortlist-empty-note";
+  line2.textContent = "That is not a decision about you.";
+  empty.appendChild(line2);
+  const actions = document.createElement("div");
+  actions.className = "answer-actions";
+  const askDifferently = document.createElement("button");
+  askDifferently.type = "button";
+  askDifferently.className = "answer-action-btn";
+  askDifferently.textContent = "Ask a question instead";
+  askDifferently.addEventListener("click", () => setMode("general"));
+  actions.appendChild(askDifferently);
+  empty.appendChild(actions);
+  return empty;
+}
+
+function renderGlossaryCard() {
+  const card = document.createElement("div");
+  card.className = "glossary-card";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "section-eyebrow";
+  eyebrow.textContent = "Words used here";
+  card.appendChild(eyebrow);
+  const list = document.createElement("dl");
+  list.className = "glossary-list";
+  [
+    ["AV", "Annual Value — the estimated yearly rent your home could fetch, used by IRAS/HDB as an income-and-wealth proxy for means-testing."],
+    ["AI", "Assessable Income — your income for a Year of Assessment after allowable deductions, used by IRAS-linked schemes."],
+    ["YA", "Year of Assessment — the year in which income from the preceding calendar year is assessed for tax."],
+  ].forEach(([term, def]) => {
+    const dt = document.createElement("dt");
+    dt.textContent = term;
+    list.appendChild(dt);
+    const dd = document.createElement("dd");
+    dd.textContent = def;
+    list.appendChild(dd);
+  });
+  card.appendChild(list);
+  return card;
+}
+
+function renderShortlistClosing(documentCount) {
+  const closing = document.createElement("p");
+  closing.className = "shortlist-closing";
+  const count = typeof documentCount === "number" ? documentCount : null;
+  closing.textContent =
+    `Amounts shown are what the source documents state, not a calculation. ` +
+    (count !== null ? `${count} document${count === 1 ? "" : "s"} checked. ` : "") +
+    `As of ${new Date().toISOString().slice(0, 10)}.`;
+  return closing;
+}
+
 function renderShortlist(result) {
   generalAnswerView.classList.add("hidden");
   shortlistView.classList.remove("hidden");
@@ -654,12 +725,20 @@ function renderShortlist(result) {
   renderDiagnostics(result.diagnostics);
 
   shortlistView.innerHTML = "";
+  shortlistView.appendChild(renderShortlistInfoBanner());
+
   const entriesByGroup = { eligible: [], unclear: [], not_assessed: [] };
   (result.shortlist || []).forEach((entry) => entriesByGroup[entry.group].push(entry));
+  const totalEntries = (result.shortlist || []).length;
+
+  if (!totalEntries) {
+    shortlistView.appendChild(renderShortlistEmptyState());
+    shortlistView.appendChild(renderShortlistClosing(result.documents_checked));
+    return;
+  }
 
   GROUP_ORDER.forEach((group) => {
     const entries = entriesByGroup[group];
-    if (!entries.length) return;
 
     const groupCard = document.createElement("div");
     groupCard.className = `shortlist-group shortlist-group-${group}`;
@@ -683,9 +762,43 @@ function renderShortlist(result) {
     blurb.textContent = GROUP_BLURBS[group];
     groupCard.appendChild(blurb);
 
+    if (!entries.length) {
+      const none = document.createElement("p");
+      none.className = "shortlist-group-none";
+      none.textContent = "None in this group.";
+      groupCard.appendChild(none);
+    }
+
     entries.forEach((entry) => groupCard.appendChild(renderShortlistEntry(entry)));
     shortlistView.appendChild(groupCard);
   });
+
+  const footerActions = document.createElement("div");
+  footerActions.className = "answer-actions";
+  footerActions.setAttribute("data-noprint", "");
+  const printBtn = document.createElement("button");
+  printBtn.type = "button";
+  printBtn.className = "answer-action-btn";
+  printBtn.textContent = "Print or save this shortlist";
+  printBtn.addEventListener("click", () => window.print());
+  footerActions.appendChild(printBtn);
+  const wrongBtn = document.createElement("button");
+  wrongBtn.type = "button";
+  wrongBtn.className = "answer-action-btn answer-action-btn-flag";
+  wrongBtn.textContent = "This looks wrong";
+  wrongBtn.addEventListener("click", () => {
+    wrongBtn.textContent = "Thanks, noted";
+    wrongBtn.disabled = true;
+    setTimeout(() => {
+      wrongBtn.textContent = "This looks wrong";
+      wrongBtn.disabled = false;
+    }, 2500);
+  });
+  footerActions.appendChild(wrongBtn);
+  shortlistView.appendChild(footerActions);
+
+  shortlistView.appendChild(renderGlossaryCard());
+  shortlistView.appendChild(renderShortlistClosing(result.documents_checked));
 }
 
 function renderAnswer(result) {

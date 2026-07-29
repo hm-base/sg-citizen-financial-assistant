@@ -491,6 +491,44 @@ textarea:focus, select:focus, input:focus {
   padding: 0.5rem 0.75rem;
 }
 
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field-row label {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.life-stage-fieldset legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 4px;
+}
+
+.life-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.life-stage-chip {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 !important;
+  font-weight: 400 !important;
+  font-size: 13px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.life-stage-chip input[type="checkbox"] {
+  width: auto;
+}
+
 .sample-questions {
   margin-top: var(--pad-card);
   padding-top: var(--pad-card);
@@ -878,6 +916,83 @@ textarea:focus, select:focus, input:focus {
   color: var(--color-muted);
   font-size: 13px;
   margin: 4px 0 14px;
+}
+
+.shortlist-group-none {
+  color: var(--color-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.shortlist-info-banner {
+  background: var(--color-info-bg);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: var(--pad-card);
+  margin-bottom: 16px;
+}
+
+.shortlist-info-banner strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.shortlist-info-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: var(--lh-body);
+}
+
+.shortlist-empty-state {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--pad-card);
+}
+
+.shortlist-empty-state p {
+  margin: 0 0 10px;
+}
+
+.shortlist-empty-note {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.glossary-card {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--pad-card);
+  margin-top: 16px;
+}
+
+.glossary-list {
+  margin: 10px 0 0;
+}
+
+.glossary-list dt {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.glossary-list dd {
+  margin: 2px 0 10px;
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: var(--lh-body);
+}
+
+.shortlist-closing {
+  max-width: 62ch;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: var(--lh-body);
+  margin: 16px 0 0;
 }
 
 .shortlist-entry {
