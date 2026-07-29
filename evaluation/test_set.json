@@ -1,5 +1,5 @@
 {
-  "_note": "All expected_relevant_chunk_ids are intentionally empty: chunk IDs only exist once the real corpus under data/raw/ has been indexed, so relevance labels must be hand-labelled against a built index (see 'Hand-labelling retrieval ground truth' in the README). Until that is done, run_eval.py reports hit_rate, recall_at_k and mrr as null and prints a warning; generated answers and the human 0-2 rubric columns are still produced.",
+  "_note": "Hand-labelled 2026-07-30 against the real Chroma index (data/chroma/metadata.jsonl, 1818 chunks / 394 docs) built from the full Drive-synced corpus. F2, P1, and P2 are left with empty expected_relevant_chunk_ids on purpose: the corpus contains only two IRAS docs (iras_cpf_cash_topup_relief_html, iras_pdf_cpf_cash_topup_relief), both specific to CPF Cash Top-up Relief -- there is no general personal-income-tax-reliefs overview document covering the $80,000 cap, Parent Relief, or Working Mother's Child Relief. Those three questions should currently trigger (correctly) a low-evidence or abstained answer, not a retrieval hit; treat any non-abstaining answer to them as a false positive worth investigating, not a retrieval bug. F1's CDC_image_000 chunk states voucher amounts but not the hawker/heartland-merchant spend locations named in its criteria -- also a content gap, not a labeling gap.",
   "questions": [
     {
       "id": "F1",
@@ -9,7 +9,9 @@
       "expected_source_doc_ids": [
         "cdc-vouchers"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "CDC_image_000"
+      ]
     },
     {
       "id": "F2",
@@ -29,7 +31,9 @@
       "expected_source_doc_ids": [
         "silver-support"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "adj_silver_support_text_002"
+      ]
     },
     {
       "id": "P1",
@@ -60,7 +64,10 @@
         "iras-tax-reliefs",
         "cpf-matched-retirement-savings"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "iras_cpf_cash_topup_relief_html_text_014",
+        "iras_pdf_cpf_cash_topup_relief_text_000"
+      ]
     },
     {
       "id": "M1",
@@ -71,7 +78,9 @@
         "gst-voucher",
         "iras-tax-reliefs"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "gst_voucher_policy_and_faqs_text_001"
+      ]
     },
     {
       "id": "M2",
@@ -82,7 +91,10 @@
         "silver-support",
         "comcare-assistance"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "adj_silver_support_text_001",
+        "ComCare Long Term Assistance (LTA) - SupportGoWhere_text_000"
+      ]
     },
     {
       "id": "U1",
@@ -116,7 +128,9 @@
       "expected_source_doc_ids": [
         "workfare-income-supplement"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "adj_workfare_income_supplement_text_004"
+      ]
     },
     {
       "id": "PR1",
@@ -136,7 +150,10 @@
         "silver-support",
         "gst-voucher"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "adj_silver_support_text_001",
+        "gst_voucher_policy_and_faqs_text_001"
+      ]
     },
     {
       "id": "PR2",
@@ -155,7 +172,9 @@
       "expected_source_doc_ids": [
         "baby-bonus-scheme"
       ],
-      "expected_relevant_chunk_ids": []
+      "expected_relevant_chunk_ids": [
+        "adj_baby_bonus_cda_text_001"
+      ]
     },
     {
       "id": "PR3",

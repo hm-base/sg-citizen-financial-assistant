@@ -187,15 +187,15 @@ def test_missing_labels_warning_is_none_when_any_question_is_labeled():
     assert missing_labels_warning(test_set) is None
 
 
-def test_missing_labels_warning_matches_the_shipped_unlabeled_test_set():
+def test_missing_labels_warning_is_none_for_the_shipped_hand_labeled_test_set():
+    """The shipped test set was hand-labelled 2026-07-30 against the real
+    index (see its _note); 8 of 15 questions have real expected_relevant_chunk_ids,
+    so retrieval metrics are available and no warning should fire."""
     from pathlib import Path
 
     path = Path(__file__).resolve().parents[2] / "evaluation" / "test_set.json"
 
-    assert missing_labels_warning(load_test_set(path)) == (
-        "WARNING: 0 of 15 questions have labeled expected_relevant_chunk_ids; "
-        "retrieval metrics unavailable."
-    )
+    assert missing_labels_warning(load_test_set(path)) is None
 
 
 def test_compute_aggregate_metrics_skips_questions_without_labels():
