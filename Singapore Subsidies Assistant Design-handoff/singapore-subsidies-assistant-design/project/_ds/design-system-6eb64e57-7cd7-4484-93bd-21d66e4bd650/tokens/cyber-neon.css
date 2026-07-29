@@ -1,0 +1,35 @@
+/* cyber-neon theme tokens — standardized (foundations + component states) */
+[data-theme="cyber-neon"] {
+  /* brand */
+  --color-primary:#06B6D4; --color-primary-hover:#29C0DA; --color-primary-active:#05A4BF; --color-primary-soft:rgba(6,182,212,0.16); --color-on-primary:#FFFFFF;
+  --color-secondary:#A855F7; --color-secondary-hover:#B46DF8; --color-secondary-active:#974DDE;
+  --color-accent:#06B6D4; --color-accent-2:#A855F7; --color-accent-3:#F472B6;
+  /* surfaces */
+  --color-bg:#020617; --color-surface:#0F172A; --color-card:#1E293B; --color-border:#334155;
+  --color-text:#F8FAFC; --color-muted:#94A3B8; --color-inverse:#020617;
+  /* semantic */
+  --color-success:#22C55E; --color-warning:#EAB308; --color-error:#EF4444; --color-alert:#EF4444; --color-info:#38BDF8;
+  --color-success-bg:rgba(34,197,94,0.16); --color-warning-bg:rgba(234,179,8,0.16);
+  --color-error-bg:rgba(239,68,68,0.16); --color-info-bg:rgba(56,189,248,0.16);
+  /* data series */
+  --color-series-1:#06B6D4; --color-series-2:#A855F7; --color-series-3:#38BDF8; --color-series-4:#F472B6; --color-series-5:#FBBF24;
+  /* type */
+  --font-heading:'Inter',system-ui,sans-serif; --font-body:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --fs-h1:42px; --fs-h2:30px; --fs-h3:22px; --fs-body:15px; --fs-caption:12px;
+  --fw-heading:700; /* @kind other */
+  --fw-medium:500; /* @kind other */
+  --fw-body:400; /* @kind other */
+  --lh-heading:1.12; /* @kind other */
+  --lh-body:1.6; /* @kind other */
+  --tracking-caption:.12em;
+  /* spacing */
+  --space-unit:8px; --space-1:8px; --space-2:16px; --space-3:24px; --space-4:32px; --space-6:48px; --space-8:64px;
+  --pad-card:24px; --pad-section:48px; --gap-grid:20px;
+  /* radius + elevation */
+  --radius-sm:6px; --radius-md:8px; --radius-lg:16px; --radius-pill:999px;
+  --elev-1:0 1px 2px rgba(0,0,0,0.6); --elev-2:0 8px 24px rgba(0,0,0,0.55); --elev-3:0 20px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(6,182,212,0.18);
+  /* interaction states */
+  --focus-ring:0 0 0 3px rgba(6,182,212,0.45); --color-disabled-bg:#1B1F2E; --color-disabled-text:#94A3B8;
+  --input-bg:#0C1322; --input-border:#334155; --input-border-focus:#06B6D4; --input-border-error:#EF4444; --input-placeholder:#94A3B8;
+  --shape:glow-dark; /* @kind other */
+}

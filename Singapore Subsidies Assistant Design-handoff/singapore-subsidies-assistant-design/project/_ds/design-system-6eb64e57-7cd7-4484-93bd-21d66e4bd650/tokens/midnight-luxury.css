@@ -1,0 +1,35 @@
+/* midnight-luxury theme tokens — standardized (foundations + component states) */
+[data-theme="midnight-luxury"] {
+  /* brand */
+  --color-primary:#F59E0B; --color-primary-hover:#F6AC2D; --color-primary-active:#DD8E0A; --color-primary-soft:rgba(245,158,11,0.16); --color-on-primary:#0A0A0A;
+  --color-secondary:#38BDF8; --color-secondary-hover:#54C6F9; --color-secondary-active:#32AADF;
+  --color-accent:#F59E0B; --color-accent-2:#38BDF8; --color-accent-3:#6366F1;
+  /* surfaces */
+  --color-bg:#030712; --color-surface:#0B1220; --color-card:#111827; --color-border:#1F2937;
+  --color-text:#F9FAFB; --color-muted:#9CA3AF; --color-inverse:#030712;
+  /* semantic */
+  --color-success:#10B981; --color-warning:#F59E0B; --color-error:#F43F5E; --color-alert:#F43F5E; --color-info:#6366F1;
+  --color-success-bg:rgba(16,185,129,0.16); --color-warning-bg:rgba(245,158,11,0.16);
+  --color-error-bg:rgba(244,63,94,0.16); --color-info-bg:rgba(99,102,241,0.16);
+  /* data series */
+  --color-series-1:#F59E0B; --color-series-2:#38BDF8; --color-series-3:#6366F1; --color-series-4:#A78BFA; --color-series-5:#FDE68A;
+  /* type */
+  --font-heading:'Inter',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --fs-h1:42px; --fs-h2:30px; --fs-h3:22px; --fs-body:16px; --fs-caption:12px;
+  --fw-heading:600; /* @kind other */
+  --fw-medium:500; /* @kind other */
+  --fw-body:400; /* @kind other */
+  --lh-heading:1.12; /* @kind other */
+  --lh-body:1.6; /* @kind other */
+  --tracking-caption:.12em;
+  /* spacing */
+  --space-unit:8px; --space-1:8px; --space-2:16px; --space-3:24px; --space-4:32px; --space-6:48px; --space-8:64px;
+  --pad-card:24px; --pad-section:48px; --gap-grid:20px;
+  /* radius + elevation */
+  --radius-sm:10px; --radius-md:16px; --radius-lg:20px; --radius-pill:999px;
+  --elev-1:0 1px 2px rgba(0,0,0,0.6); --elev-2:0 8px 24px rgba(0,0,0,0.55); --elev-3:0 20px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,158,11,0.18);
+  /* interaction states */
+  --focus-ring:0 0 0 3px rgba(245,158,11,0.45); --color-disabled-bg:#1C202A; --color-disabled-text:#9CA3AF;
+  --input-bg:#090F1A; --input-border:#1F2937; --input-border-focus:#F59E0B; --input-border-error:#F43F5E; --input-placeholder:#9CA3AF;
+  --shape:glass; /* @kind other */
+}

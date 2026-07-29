@@ -112,6 +112,32 @@ def test_answer_general_question_abstains_below_threshold_without_calling_llm():
     assert llm_client.last_prompt is None
 
 
+def test_answer_general_question_treats_in_prompt_fallback_as_abstained():
+    """The gate can pass (relevant-enough chunks retrieved) while the model
+    itself still judges them too tangential and emits the exact fallback
+    message. That must be treated like a real abstain -- no sources attached
+    -- rather than pairing "not enough information" with a Sources list that
+    looks like supporting evidence."""
+    from config import FALLBACK_MESSAGE
+
+    rag_index = _build_rag_index()
+    llm_client = FakeLLMClient(FALLBACK_MESSAGE)
+
+    result = answer_general_question(
+        "gst voucher amount",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+        rewrite_query=False,
+    )
+
+    assert result["abstained"] is True
+    assert result["answer"] == FALLBACK_MESSAGE
+    assert result["sources"] == []
+
+
 def test_answer_general_question_abstains_after_one_rewrite_call_when_rewrite_enabled():
     """With rewriting on (the default), the rewrite call happens before the
     gate check -- so abstaining still skips the answer-generation call, but

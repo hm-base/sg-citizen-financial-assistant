@@ -1,0 +1,7 @@
+/* Base resets + font-faces shared across all themes */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=Barlow+Condensed:wght@400;600&family=Figtree:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body, 'Inter', sans-serif); background: var(--color-bg, #fff); color: var(--color-text, #111); }
+a { color: var(--color-accent, #2563EB); }
+a:hover { opacity: .8; }
+[data-theme] { background: var(--color-bg); color: var(--color-text); }

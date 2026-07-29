@@ -2,6 +2,8 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from google.genai.errors import ClientError as GeminiClientError
+from openai import APIStatusError as GroqAPIStatusError
 from pydantic import BaseModel
 
 import config
@@ -25,6 +27,18 @@ _rag_index_cache: RagIndex | None = None
 
 INDEX_MISSING_DETAIL = (
     "Knowledge base index not found — run `python -m ingestion.build_index` first"
+)
+
+# Both LLM SDKs raise their own exception type for 4xx/5xx responses (rate
+# limits, exhausted daily quota, transient outages). Left uncaught, these
+# propagate past FastAPI as a bare 500 with no actionable detail -- a
+# resident (or demo audience) sees "Something went wrong: HTTP 500" instead
+# of "try again shortly" or "switch provider."
+LLM_PROVIDER_ERRORS = (GeminiClientError, GroqAPIStatusError)
+LLM_PROVIDER_ERROR_DETAIL = (
+    "The assistant's LLM provider is temporarily unavailable (rate limit or "
+    "quota exceeded). Please try again in a few minutes, or switch "
+    "LLM_PROVIDER in .env if another provider has quota left."
 )
 
 
@@ -88,16 +102,19 @@ def query(
     rag_index: RagIndex = Depends(get_rag_index),
     llm_client=Depends(get_llm_client),
 ):
-    return answer_general_question(
-        request.question,
-        rag_index,
-        llm_client,
-        top_k=_override(request.top_k, config.TOP_K),
-        similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
-        retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
-        rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
-        diagnostics_full=diagnostics == "full",
-    )
+    try:
+        return answer_general_question(
+            request.question,
+            rag_index,
+            llm_client,
+            top_k=_override(request.top_k, config.TOP_K),
+            similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
+            retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
+            rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
+            diagnostics_full=diagnostics == "full",
+        )
+    except LLM_PROVIDER_ERRORS:
+        raise HTTPException(status_code=503, detail=LLM_PROVIDER_ERROR_DETAIL)
 
 
 @app.post("/api/profile-query")

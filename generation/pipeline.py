@@ -360,6 +360,13 @@ def _records_with_scores(rag_index: RagIndex, results: list[tuple[int, float]]) 
 
 def _generate_result(prompt: str, retrieved_records: list[dict], llm_client) -> dict:
     answer = llm_client.generate(prompt)
+    if answer.strip() == FALLBACK_MESSAGE:
+        # The similarity gate passed, but the model itself judged the
+        # retrieved passages too tangential to answer from -- the in-prompt
+        # half of the two-layer abstention. Treat it exactly like a gate-level
+        # abstain: no sources, since showing "evidence" alongside "not enough
+        # information" is self-contradictory to the resident.
+        return _abstain_result()
     cited = extract_cited_scheme_labels(answer)
     allowed = {(r["scheme_name"], r["section_or_page"]) for r in retrieved_records}
     warnings = [pair for pair in cited if (pair[0].strip(), pair[1].strip()) not in allowed]

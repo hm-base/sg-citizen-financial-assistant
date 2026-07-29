@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><script src="./ds-base.js"></script>
+<style>*{box-sizing:border-box}body{margin:0}a{color:var(--color-primary);text-decoration:underline;text-underline-offset:2px}a:hover{color:var(--color-primary-hover)}input,select,textarea{font-family:inherit}:focus-visible{outline:none;box-shadow:var(--focus-ring)}@media print{[data-noprint]{display:none!important}}
+[data-theme="warm-earth"] button,[data-theme="warm-earth"] input:not([type=range]):not([type=checkbox]),[data-theme="warm-earth"] select{border-radius:var(--radius-pill)}
+[data-theme="warm-earth"] textarea{border-radius:var(--radius-md)}
+[data-theme="warm-earth"] label>span+select,[data-theme="warm-earth"] input[type=number]{padding-left:16px;padding-right:16px}
+[data-theme="warm-earth"] button[role=tab]{border-radius:0}
+[data-theme="midnight-luxury"] aside[role=dialog]{background:color-mix(in srgb, #0B1220 76%, transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}</style>
+</helmet>
+<div data-theme="{{ theme }}" style="background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);font-size:var(--fs-body);line-height:var(--lh-body);min-height:100vh">
+
+<div data-noprint="1" style="background:var(--color-text);color:var(--color-inverse);padding:7px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px">
+<span style="font-family:var(--font-mono)">PROTOTYPE</span>
+<span style="opacity:.75">Demonstration only. Not an official government service and not a decision on any application.</span>
+</div>
+
+<header style="background:var(--color-surface);border-bottom:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+<div style="display:flex;align-items:center;gap:10px;margin-right:auto">
+<div style="width:22px;height:22px;background:var(--color-accent);border-radius:var(--radius-sm)"></div>
+<div>
+<div style="font-family:var(--font-heading);font-weight:var(--fw-heading);font-size:var(--fs-h3);line-height:1.2">Subsidies &amp; tax reliefs assistant</div>
+<div style="font-size:var(--fs-caption);color:var(--color-muted)">Answers drawn from published scheme documents · Singapore · English only</div>
+</div>
+</div>
+<button data-noprint="1" onClick="{{ toggleAdv }}" aria-expanded="{{ advOpen }}" style="background:transparent;color:var(--color-muted);border:1px solid color-mix(in srgb, var(--color-text) 18%, transparent);border-radius:var(--radius-sm);font-family:var(--font-heading);font-weight:600;font-size:13px;padding:9px 14px;cursor:pointer" style-hover="color:var(--color-text);border-color:var(--color-text)">Advanced</button>
+</header>
+
+<div data-noprint="1" style="background:var(--color-surface);border-bottom:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);padding:0 20px">
+<div role="tablist" aria-label="Assistant mode" style="max-width:1180px;margin:0 auto;display:flex;gap:4px">
+<button role="tab" aria-selected="{{ isQa }}" onClick="{{ setQa }}" style="{{ tabQaStyle }}">General Q&amp;A</button>
+<button role="tab" aria-selected="{{ isShortlist }}" onClick="{{ setShortlist }}" style="{{ tabShortStyle }}">Personal eligibility shortlist</button>
+</div>
+</div>
+
+<sc-if value="{{ advOpen }}" hint-placeholder-val="{{ true }}">
+<div data-noprint="1" style="background:color-mix(in srgb, var(--color-text) 4%, var(--color-bg));border-bottom:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);padding:16px 20px">
+<div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px">
+<span style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted)">Advanced · retrieval</span>
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">Team demo controls. Not shown to residents.</span>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end">
+<label style="display:flex;flex-direction:column;gap:6px;min-width:200px">
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">top_k <span style="font-family:var(--font-mono);color:var(--color-text)">{{ topK }}</span></span>
+<input type="range" min="1" max="20" step="1" value="{{ topK }}" onChange="{{ setTopK }}" style="accent-color:var(--color-accent);width:100%">
+</label>
+<label style="display:flex;flex-direction:column;gap:6px;min-width:200px">
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">similarity threshold <span style="font-family:var(--font-mono);color:var(--color-text)">{{ thresholdLabel }}</span></span>
+<input type="range" min="0" max="100" step="1" value="{{ threshold }}" onChange="{{ setThreshold }}" style="accent-color:var(--color-accent);width:100%">
+</label>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">retrieval</span>
+<div style="display:flex;gap:4px;border:1px solid color-mix(in srgb, var(--color-text) 18%, transparent);border-radius:var(--radius-sm);padding:3px">
+<button onClick="{{ setBaseline }}" style="{{ baselineStyle }}">Baseline</button>
+<button onClick="{{ setHybrid }}" style="{{ hybridStyle }}">Hybrid</button>
+</div>
+</div>
+<label style="display:flex;flex-direction:column;gap:6px;min-width:190px">
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">simulate result state</span>
+<select value="{{ resultState }}" onChange="{{ setResultState }}" style="{{ fieldStyle }}"><option value="ok">Normal results</option><option value="empty">No scheme matched</option><option value="error">Retrieval failed</option><option value="stale">Document set stale</option></select>
+</label>
+<div style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--color-muted);padding-bottom:6px">{{ retrievalNote }}</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:16px">
+<div style="flex:1 1 380px;background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);padding:14px">
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">Retrieved chunks</div>
+<table style="width:100%;border-collapse:collapse;font-size:12px">
+<thead><tr>
+<th style="{{ thStyle }}">Chunk</th><th style="{{ thStyle }}">Score</th><th style="{{ thStyle }}">Rank Δ</th><th style="{{ thStyle }}">State</th>
+</tr></thead>
+<tbody>
+<sc-for list="{{ diagnostics }}" as="d" hint-placeholder-count="5">
+<tr>
+<td style="{{ tdStyle }}">{{ d.chunk }}</td>
+<td style="{{ tdStyle }}">{{ d.score }}</td>
+<td style="{{ tdStyle }}">{{ d.delta }}</td>
+<td style="{{ tdStyle }}"><span style="color:{{ d.stateColor }}">{{ d.state }}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted);margin-top:8px">{{ droppedNote }}</div>
+</div>
+<div style="flex:1 1 260px;background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);padding:14px">
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">Baseline vs hybrid · same query</div>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+<sc-for list="{{ compare }}" as="c" hint-placeholder-count="4">
+<div style="display:flex;gap:10px;align-items:baseline">
+<span style="font-family:var(--font-mono);color:var(--color-muted);flex:0 0 76px">{{ c.metric }}</span>
+<span style="font-family:var(--font-mono);flex:0 0 58px">{{ c.baseline }}</span>
+<span style="font-family:var(--font-mono);flex:0 0 58px">{{ c.hybrid }}</span>
+<span style="font-family:var(--font-mono);color:{{ c.deltaColor }}">{{ c.delta }}</span>
+</div>
+</sc-for>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted)">columns: baseline · hybrid · Δ</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStale }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--color-warning-bg);padding:12px 20px">
+<div style="max-width:1180px;margin:0 auto;display:flex;gap:10px;align-items:flex-start">
+<span style="width:6px;height:6px;border-radius:50%;background:var(--color-warning);margin-top:9px;flex:0 0 6px"></span>
+<p style="margin:0;font-size:14px;line-height:1.5">Document set last refreshed 19 Feb 2026. Budget-year figures may have changed since then — treat amounts as out of date and check the linked source.</p>
+</div>
+</div>
+</sc-if>
+
+<main style="max-width:1180px;margin:0 auto;padding:24px 20px 64px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+
+<sc-if value="{{ isQa }}" hint-placeholder-val="{{ true }}">
+<section data-noprint="1" style="flex:1 1 340px;min-width:300px;background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<h2 style="margin:0 0 6px;font-family:var(--font-heading);font-weight:var(--fw-heading);font-size:var(--fs-h3);line-height:var(--lh-heading)">Ask a question</h2>
+<p style="margin:0 0 16px;color:var(--color-muted);font-size:14px">Plain language is fine. Answers quote the scheme document they come from.</p>
+<label>
+<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Your question</span>
+<textarea rows="4" value="{{ question }}" onChange="{{ setQuestion }}" style="width:100%;resize:vertical;padding:12px 14px;font-size:15px;line-height:1.5;color:var(--color-text);background:var(--input-bg);border:1px solid var(--input-border);border-radius:var(--radius-sm)" style-focus="border-color:var(--input-border-focus);box-shadow:var(--focus-ring);outline:none"></textarea>
+</label>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px">
+<button onClick="{{ submit }}" style="background:var(--color-primary);color:var(--color-on-primary);border:none;border-radius:var(--radius-sm);font-family:var(--font-heading);font-weight:600;font-size:15px;padding:12px 22px;cursor:pointer" style-hover="background:var(--color-primary-hover)" style-active="background:var(--color-primary-active)">Get answer</button>
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">Nothing you type is saved.</span>
+</div>
+<div style="margin-top:20px;padding-top:16px;border-top:1px solid color-mix(in srgb, var(--color-text) 10%, transparent)">
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted);margin-bottom:10px">Common questions</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ examples }}" as="ex" hint-placeholder-count="3">
+<button onClick="{{ ex.ask }}" style="text-align:left;background:transparent;border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;color:var(--color-text);cursor:pointer;font-family:var(--font-body)" style-hover="border-color:var(--color-primary);color:var(--color-primary)">{{ ex.q }}</button>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section ref="{{ resultsRef }}" tabIndex="-1" role="region" aria-live="polite" aria-label="Answer and sources" style="flex:1 1 460px;min-width:300px;display:flex;flex-direction:column;gap:20px">
+
+<sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="display:flex;gap:10px;align-items:flex-start">
+<span style="width:6px;height:6px;border-radius:50%;background:var(--color-error);margin-top:10px;flex:0 0 6px"></span>
+<div>
+<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">The document search did not respond.</div>
+<p style="margin:6px 0 0;font-size:15px;line-height:1.55">No answer was generated, so nothing here is a partial result. Try again in a moment. If it keeps failing, the schemes' own websites still have the same documents.</p>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted);margin-top:10px">retriever timeout · 8000 ms · request 7f21c9</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOkQa }}" hint-placeholder-val="{{ true }}">
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:14px">
+<span style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-accent)">Answer</span>
+<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--color-muted)">3 sources · {{ retrievalLabel }}</span>
+</div>
+<p style="margin:0 0 12px;font-size:16px;line-height:1.65">Yes, in most cases. Cash top-ups you make to your mother's CPF Retirement Account can be claimed under CPF Cash Top-up Relief, up to <span style="font-family:var(--font-mono)">$8,000</span> per calendar year for top-ups to loved ones.<sup style="font-family:var(--font-mono);font-size:11px;color:var(--color-primary)">[1]</sup></p>
+<p style="margin:0 0 12px;font-size:16px;line-height:1.65">The relief goes to the person who made the top-up, in the Year of Assessment after the year you paid it. Your mother must be a Singapore Citizen or Permanent Resident.<sup style="font-family:var(--font-mono);font-size:11px;color:var(--color-primary)">[2]</sup> If she is 55 or older, the source states the top-up goes to her Retirement Account, up to the Full Retirement Sum.<sup style="font-family:var(--font-mono);font-size:11px;color:var(--color-primary)">[3]</sup></p>
+<div style="display:flex;gap:10px;align-items:flex-start;background:var(--color-info-bg);border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px">
+<span style="width:6px;height:6px;border-radius:50%;background:var(--color-info);margin-top:9px;flex:0 0 6px"></span>
+<p style="margin:0;font-size:14px;line-height:1.55">This answer summarises published documents. It is not tax advice, and not confirmation that a claim will be allowed. Check the cited sections before you file.</p>
+</div>
+<div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid color-mix(in srgb, var(--color-text) 10%, transparent)">
+<button onClick="{{ goShortlist }}" style="{{ actionStyle }}">Check if this applies to me</button>
+<button onClick="{{ doPrint }}" style="{{ actionStyle }}">Print this answer</button>
+<button onClick="{{ flag }}" style="{{ flagStyle }}">{{ flagLabel }}</button>
+</div>
+</div>
+
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:4px">
+<h3 style="margin:0;font-family:var(--font-heading);font-weight:var(--fw-heading);font-size:var(--fs-h3)">Sources</h3>
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">Every claim above maps to one of these.</span>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;gap:14px;padding:16px 0;border-bottom:1px solid color-mix(in srgb, var(--color-text) 10%, transparent)">
+<div style="font-family:var(--font-mono);font-size:12px;color:var(--color-primary);flex:0 0 22px;padding-top:2px">{{ s.n }}</div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-weight:600;font-size:15px">{{ s.scheme }}</div>
+<div style="font-family:var(--font-mono);font-size:12px;color:var(--color-muted);margin:3px 0 8px">{{ s.ref }} · sim {{ s.score }}</div>
+<p style="margin:0;font-size:14px;line-height:1.55;color:color-mix(in srgb, var(--color-text) 82%, transparent);border-left:2px solid color-mix(in srgb, var(--color-text) 18%, transparent);padding-left:12px">{{ s.excerpt }}</p>
+<button data-noprint="1" onClick="{{ s.open }}" style="{{ linkBtnStyle }}">Show passage in context</button>
+</div>
+<sc-if value="{{ s.thumb }}" hint-placeholder-val="{{ true }}">
+<div style="flex:0 0 92px">
+<div style="height:64px;background:color-mix(in srgb, var(--color-text) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--color-muted);text-align:center;padding:4px">{{ s.thumbKind }}</div>
+<div style="font-family:var(--font-mono);font-size:10px;color:var(--color-muted);margin-top:4px;text-align:center">{{ s.thumbLabel }}</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{ isShortlist }}" hint-placeholder-val="{{ false }}">
+<section data-noprint="1" style="flex:1 1 340px;min-width:300px;background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<h2 style="margin:0 0 6px;font-family:var(--font-heading);font-weight:var(--fw-heading);font-size:var(--fs-h3);line-height:var(--lh-heading)">About you</h2>
+<p style="margin:0 0 18px;color:var(--color-muted);font-size:14px">Seven questions. No name, no NRIC, nothing stored.</p>
+<div style="display:flex;flex-direction:column;gap:16px">
+<label style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;font-weight:500">Citizenship</span>
+<select style="{{ fieldStyle }}"><option>Singapore Citizen</option><option>Permanent Resident</option><option>Foreigner / other pass</option></select>
+</label>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+<label style="display:flex;flex-direction:column;gap:6px;flex:1 1 120px">
+<span style="font-size:13px;font-weight:500">Age</span>
+<input type="number" defaultValue="41" style="{{ fieldStyle }}">
+</label>
+<label style="display:flex;flex-direction:column;gap:6px;flex:1 1 120px">
+<span style="font-size:13px;font-weight:500">People in household</span>
+<input type="number" defaultValue="4" style="{{ fieldStyle }}">
+</label>
+</div>
+<label style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;font-weight:500">Monthly household income per person</span>
+<select defaultValue="$1,001 – $1,500" style="{{ fieldStyle }}"><option>Up to $1,000</option><option>$1,001 – $1,500</option><option>$1,501 – $2,500</option><option>Above $2,500</option><option>Prefer not to say</option></select>
+</label>
+<label style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;font-weight:500">Housing type</span>
+<select defaultValue="HDB 3-room" style="{{ fieldStyle }}"><option>HDB 1–2 room</option><option>HDB 3-room</option><option>HDB 4-room</option><option>HDB 5-room / executive</option><option>Private property</option></select>
+</label>
+<label style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;font-weight:500">Employment status</span>
+<select defaultValue="Employed" style="{{ fieldStyle }}"><option>Employed</option><option>Self-employed</option><option>Not working</option><option>Retired</option><option>Studying</option></select>
+</label>
+<fieldset style="border:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+<legend style="padding:0;font-size:13px;font-weight:500">Anything happening in your life now?</legend>
+<span style="font-size:var(--fs-caption);color:var(--color-muted)">Tick any that apply. Each one adds schemes to check.</span>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+<sc-for list="{{ tags }}" as="t" hint-placeholder-count="6">
+<label style="display:flex;align-items:center;gap:9px;font-size:14px;padding:9px 11px;border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);cursor:pointer">
+<input type="checkbox" defaultChecked="{{ t.on }}" style="accent-color:var(--color-accent);width:16px;height:16px;margin:0">
+<span>{{ t.label }}</span>
+</label>
+</sc-for>
+</div>
+</fieldset>
+<label style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:13px;font-weight:500">Anything specific you want to ask? <span style="color:var(--color-muted);font-weight:400">Optional</span></span>
+<textarea rows="3" defaultValue="Is there help with my mother's medical bills?" style="{{ fieldStyle }}"></textarea>
+</label>
+<button onClick="{{ submit }}" style="background:var(--color-primary);color:var(--color-on-primary);border:none;border-radius:var(--radius-sm);font-family:var(--font-heading);font-weight:600;font-size:15px;padding:13px 22px;cursor:pointer" style-hover="background:var(--color-primary-hover)" style-active="background:var(--color-primary-active)">Show my shortlist</button>
+</div>
+</section>
+
+<section ref="{{ resultsRef }}" tabIndex="-1" role="region" aria-live="polite" aria-label="Eligibility shortlist" style="flex:1 1 460px;min-width:300px;display:flex;flex-direction:column;gap:20px">
+<div style="background:var(--color-info-bg);border-radius:var(--radius-md);padding:18px 20px">
+<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:4px">This is a shortlist to check, not an approval.</div>
+<p style="margin:0;font-size:14px;line-height:1.55">Nothing here is a guaranteed payout. Only the agency that runs each scheme can decide. Every line below shows the document it came from — read it before you apply.</p>
+</div>
+
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">No scheme in the document set matched your answers.</div>
+<p style="margin:6px 0 0;font-size:15px;line-height:1.55">That is not a decision about you. It usually means the profile falls between stated conditions, or the relevant scheme document is not in this set yet.</p>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+<button onClick="{{ goQa }}" style="{{ actionStyle }}">Ask a question instead</button>
+<button onClick="{{ flag }}" style="{{ flagStyle }}">{{ flagLabel }}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="display:flex;gap:10px;align-items:flex-start">
+<span style="width:6px;height:6px;border-radius:50%;background:var(--color-error);margin-top:10px;flex:0 0 6px"></span>
+<div>
+<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">The document search did not respond.</div>
+<p style="margin:6px 0 0;font-size:15px;line-height:1.55">No shortlist was produced, so nothing here is a partial result. Your answers are still in the form — try again in a moment.</p>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted);margin-top:10px">retriever timeout · 8000 ms · request 7f21c9</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOkList }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid color-mix(in srgb, var(--color-text) 12%, transparent)">
+<span style="width:8px;height:8px;border-radius:50%;background:{{ g.dot }};flex:0 0 8px"></span>
+<h3 style="margin:0;font-family:var(--font-heading);font-weight:var(--fw-heading);font-size:var(--fs-h3)">{{ g.title }}</h3>
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-muted);margin-left:auto">{{ g.count }}</span>
+</div>
+<p style="margin:10px 0 0;font-size:13px;color:var(--color-muted)">{{ g.blurb }}</p>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+<div style="padding:16px 0;border-bottom:1px solid color-mix(in srgb, var(--color-text) 8%, transparent)">
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline">
+<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;flex:1 1 auto">{{ it.name }}</div>
+<div style="font-family:var(--font-mono);font-size:13px;color:{{ it.amountColor }}">{{ it.amount }}</div>
+</div>
+<p style="margin:6px 0 0;font-size:15px;line-height:1.55">{{ it.reason }}</p>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted);margin-top:10px">{{ it.checkSummary }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+<sc-for list="{{ it.checks }}" as="ck" hint-placeholder-count="3">
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 9px;border-radius:var(--radius-sm);background:color-mix(in srgb, var(--color-text) 5%, transparent);color:color-mix(in srgb, var(--color-text) 85%, transparent)">
+<span style="width:6px;height:6px;border-radius:50%;background:{{ ck.dot }};flex:0 0 6px"></span>{{ ck.label }}</span>
+</sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:12px;padding-left:12px;border-left:2px solid color-mix(in srgb, var(--color-text) 18%, transparent)">
+<div>
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted)">What would change this</div>
+<p style="margin:4px 0 0;font-size:14px;line-height:1.5">{{ it.changer }}</p>
+</div>
+</div>
+<div data-noprint="1" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px">
+<button onClick="{{ it.open }}" style="font-family:var(--font-mono);font-size:11px;color:var(--color-primary);background:transparent;border:1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer" style-hover="background:var(--color-primary-soft)">{{ it.cite }}</button>
+<button onClick="{{ it.ask }}" style="{{ linkBtnStyle }}">Ask about this scheme</button>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+
+<div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px">
+<button onClick="{{ doPrint }}" style="{{ actionStyle }}">Print or save this shortlist</button>
+<button onClick="{{ flag }}" style="{{ flagStyle }}">{{ flagLabel }}</button>
+</div>
+
+<div style="background:var(--color-card);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-md);padding:var(--pad-card)">
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-muted);margin-bottom:12px">Words used here</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ glossary }}" as="gl" hint-placeholder-count="3">
+<div>
+<div style="font-size:14px;font-weight:600">{{ gl.term }}</div>
+<p style="margin:2px 0 0;font-size:14px;line-height:1.5;color:color-mix(in srgb, var(--color-text) 80%, transparent)">{{ gl.def }}</p>
+</div>
+</sc-for>
+</div>
+</div>
+
+<p style="margin:0;font-size:13px;color:var(--color-muted);max-width:62ch">Amounts shown are the figures the documents state — not what you will receive. Checked against {{ docCount }} published documents on {{ asOf }}. Scheme rules change, and this shortlist follows whatever the retrieved documents say, including saying nothing.</p>
+</sc-if>
+</section>
+</sc-if>
+
+</main>
+
+<sc-if value="{{ citeOpen }}" hint-placeholder-val="{{ false }}">
+<div data-noprint="1" style="position:fixed;inset:0;z-index:40">
+<div onClick="{{ closeCite }}" style="position:absolute;inset:0;background:color-mix(in srgb, var(--color-text) 30%, transparent)"></div>
+<aside role="dialog" aria-label="Source passage" style="position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--color-surface);border-left:1px solid color-mix(in srgb, var(--color-text) 15%, transparent);box-shadow:var(--elev-3);padding:var(--pad-card);overflow:auto;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="flex:1">
+<div style="font-family:var(--font-heading);font-size:10px;font-weight:600;letter-spacing:var(--tracking-caption);text-transform:uppercase;color:var(--color-accent)">Source passage</div>
+<div style="font-family:var(--font-heading);font-weight:600;font-size:var(--fs-h3);line-height:1.25;margin-top:4px">{{ cite.scheme }}</div>
+<div style="font-family:var(--font-mono);font-size:12px;color:var(--color-muted);margin-top:4px">{{ cite.ref }}</div>
+</div>
+<button onClick="{{ closeCite }}" aria-label="Close" style="background:transparent;border:1px solid color-mix(in srgb, var(--color-text) 18%, transparent);border-radius:var(--radius-sm);color:var(--color-muted);font-size:14px;padding:6px 11px;cursor:pointer" style-hover="color:var(--color-text);border-color:var(--color-text)">Close</button>
+</div>
+<sc-if value="{{ cite.thumb }}" hint-placeholder-val="{{ false }}">
+<div style="height:140px;background:color-mix(in srgb, var(--color-text) 8%, transparent);border:1px solid color-mix(in srgb, var(--color-text) 12%, transparent);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;color:var(--color-muted)">{{ cite.thumbKind }} · {{ cite.thumbLabel }}</div>
+</sc-if>
+<p style="margin:0;font-size:14px;line-height:1.6;color:var(--color-muted)">{{ cite.before }}</p>
+<p style="margin:0;font-size:16px;line-height:1.6;background:var(--color-info-bg);border-radius:var(--radius-sm);padding:12px 14px">{{ cite.excerpt }}</p>
+<p style="margin:0;font-size:14px;line-height:1.6;color:var(--color-muted)">{{ cite.after }}</p>
+<div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:12px;border-top:1px solid color-mix(in srgb, var(--color-text) 10%, transparent)">
+<a href="#" style="font-size:13px">Open the full document</a>
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-muted)">sim {{ cite.score }} · chunk {{ cite.chunk }}</span>
+</div>
+</aside>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;warm-earth&quot;,&quot;tsType&quot;:&quot;'warm-earth' | 'midnight-luxury'&quot;,&quot;options&quot;:[&quot;warm-earth&quot;,&quot;midnight-luxury&quot;]},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;shortlist&quot;,&quot;tsType&quot;:&quot;'qa' | 'shortlist'&quot;,&quot;options&quot;:[&quot;qa&quot;,&quot;shortlist&quot;]},&quot;advancedOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { mode: null, advOpen: null, topK: 6, threshold: 62, hybrid: true,
+    resultState: 'ok', question: "Can I claim tax relief if I top up my mother's CPF Retirement Account?",
+    cite: null, flagged: false };
+  resultsRef = React.createRef();
+
+  tabStyle(on) {
+    return 'background:transparent;border:none;border-bottom:3px solid ' + (on ? 'var(--color-primary)' : 'transparent') +
+      ';color:' + (on ? 'var(--color-text)' : 'var(--color-muted)') +
+      ';font-family:var(--font-heading);font-weight:600;font-size:15px;padding:14px 4px;margin-right:24px;cursor:pointer';
+  }
+  segStyle(on) {
+    return 'background:' + (on ? 'var(--color-primary-soft)' : 'transparent') +
+      ';color:' + (on ? 'var(--color-accent)' : 'var(--color-muted)') +
+      ';border:none;border-radius:var(--radius-sm);font-family:var(--font-heading);font-weight:600;font-size:13px;padding:7px 14px;cursor:pointer';
+  }
+  focusResults() {
+    setTimeout(() => { const n = this.resultsRef.current; if (n) n.focus({ preventScroll: true }); }, 30);
+  }
+  opener(c) { return () => this.setState({ cite: c }); }
+
+  renderVals() {
+    const mode = this.state.mode ?? this.props.mode ?? 'qa';
+    const advOpen = this.state.advOpen ?? (this.props.advancedOpen ?? false);
+    const isQa = mode === 'qa';
+    const rs = this.state.resultState;
+    const field = 'width:100%;padding:11px 12px;font-size:15px;color:var(--color-text);background:var(--input-bg);border:1px solid var(--input-border);border-radius:var(--radius-sm)';
+    const action = 'background:transparent;color:var(--color-text);border:1px solid color-mix(in srgb, var(--color-text) 22%, transparent);border-radius:var(--radius-sm);font-family:var(--font-heading);font-weight:600;font-size:13px;padding:11px 18px;min-height:44px;cursor:pointer';
+    const th = 'text-align:left;font-family:var(--font-heading);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted);padding:6px 8px;border-bottom:1px solid color-mix(in srgb, var(--color-text) 15%, transparent)';
+    const td = 'padding:6px 8px;font-family:var(--font-mono);font-size:12px;border-bottom:1px solid color-mix(in srgb, var(--color-text) 8%, transparent)';
+    const ok = 'var(--color-success)', warn = 'var(--color-warning)', mut = 'var(--color-muted)';
+
+    const ev = {
+      gstv: { scheme: 'GST Voucher — Cash', ref: 'GSTV factsheet · s.2 · p.2', score: '0.81', chunk: 'gstv#12',
+        before: 'Eligibility for the cash component is assessed on citizenship, assessable income for the Year of Assessment, and the annual value of the home you live in.',
+        excerpt: 'Singapore Citizens aged 21 and above with assessable income of not more than $34,000 and an annual value of home of up to $21,000 will receive $850; those with an annual value above $21,000 and up to $31,000 will receive $450.',
+        after: 'Payments are made in August each year to the payment mode registered with the agency.' },
+      cdc: { scheme: 'CDC Vouchers', ref: 'CDC scheme page · s.1', score: '0.88', chunk: 'cdc#3',
+        before: 'The vouchers are issued once per household per exercise.',
+        excerpt: 'All Singaporean households are eligible to claim $500 in CDC Vouchers, split between participating heartland merchants and supermarkets.',
+        after: 'Claims are made by the household representative using Singpass.' },
+      wis: { scheme: 'Workfare Income Supplement', ref: 'WIS conditions · s.3.1 · p.7', score: '0.74', chunk: 'wis#21',
+        before: 'Workfare supplements the income and retirement savings of lower-wage workers.',
+        excerpt: 'You must be a Singapore Citizen aged 30 and above, earn a gross monthly income of not more than $2,500, and have received CPF contributions for work done in the qualifying period.',
+        after: 'Employees are assessed monthly; self-employed persons are assessed yearly after declaring net trade income.',
+        thumb: true, thumbKind: 'TABLE', thumbLabel: 'p.7' },
+      silver: { scheme: 'Silver Support Scheme', ref: 'Silver Support criteria · p.3', score: '0.69', chunk: 'ssup#7',
+        before: 'The scheme supplements the retirement income of seniors who had low incomes through life.',
+        excerpt: 'You must be aged 65 and above, have total CPF contributions not exceeding the stated cap by age 55, and live in a HDB flat of 5-room or smaller.',
+        after: 'Recipients are identified automatically; no application is required.' },
+      comcare: { scheme: 'ComCare Short-to-Medium-Term Assistance', ref: 'ComCare overview · s.2', score: '0.63', chunk: 'cc#4',
+        before: 'Assistance covers living expenses, rental and utilities for households facing temporary difficulty.',
+        excerpt: 'The amount and duration of assistance are determined by a Social Service Office caseworker after assessing the household\u2019s circumstances and available family support.',
+        after: 'Apply at any Social Service Office; bring income documents where available.' },
+      cpf: { scheme: 'CPF Cash Top-up Relief', ref: 'IRAS e-Tax Guide · s.4.2 · p.11', score: '0.86', chunk: 'iras#31',
+        before: 'Relief is granted to encourage retirement savings within families.',
+        excerpt: 'Tax relief of up to $8,000 per year is available on cash top-ups made to the Special or Retirement Account of your parents, grandparents, spouse or siblings.',
+        after: 'A further $8,000 cap applies to top-ups made to your own account, assessed separately.' },
+      cond: { scheme: 'Qualifying conditions — top-ups to loved ones', ref: 'CPF Board factsheet · Fig. 2 · p.4', score: '0.79', chunk: 'cpf#9',
+        before: 'Figure 2 sets out who may receive a cash top-up that qualifies for relief.',
+        excerpt: 'The recipient must be a Singapore Citizen or Permanent Resident at the time the top-up is made.',
+        after: 'Top-ups to a recipient who does not meet this condition are accepted but do not qualify for relief.',
+        thumb: true, thumbKind: 'FIGURE', thumbLabel: 'p.4' },
+      rstu: { scheme: 'Retirement Sum Topping-Up Scheme', ref: 'CPF explainer video · frame at 02:14', score: '0.72', chunk: 'vid#2',
+        before: 'The narrator explains where a top-up lands depending on the recipient\u2019s age.',
+        excerpt: 'For members aged 55 and above, cash top-ups go to the Retirement Account, up to the current Full Retirement Sum.',
+        after: 'Below 55, top-ups go to the Special Account instead.',
+        thumb: true, thumbKind: 'VIDEO ▸', thumbLabel: '02:14' },
+    };
+
+    const askScheme = (q) => () => this.setState({ mode: 'qa', question: q, cite: null }, () => this.focusResults());
+
+    return {
+      theme: this.props.theme ?? 'scandinavian-minimal',
+      isQa, isShortlist: !isQa, advOpen,
+      resultState: rs,
+      isEmpty: !isQa && rs === 'empty',
+      isError: rs === 'error',
+      isStale: rs === 'stale',
+      isOkQa: isQa && rs !== 'error',
+      isOkList: !isQa && rs !== 'error' && rs !== 'empty',
+      topK: this.state.topK,
+      threshold: this.state.threshold,
+      thresholdLabel: (this.state.threshold / 100).toFixed(2),
+      retrievalLabel: this.state.hybrid ? 'hybrid retrieval' : 'baseline retrieval',
+      retrievalNote: 'k=' + this.state.topK + ' · sim≥' + (this.state.threshold / 100).toFixed(2) + ' · ' + (this.state.hybrid ? 'bm25+dense' : 'dense only'),
+      question: this.state.question,
+      fieldStyle: field, actionStyle: action, thStyle: th, tdStyle: td,
+      linkBtnStyle: 'background:transparent;border:none;padding:0;margin-top:8px;font-size:13px;color:var(--color-primary);text-decoration:underline;text-underline-offset:2px;cursor:pointer;font-family:var(--font-body)',
+      flagStyle: action + (this.state.flagged ? ';color:var(--color-muted)' : ''),
+      flagLabel: this.state.flagged ? 'Logged for review · thank you' : 'This looks wrong',
+      tabQaStyle: this.tabStyle(isQa),
+      tabShortStyle: this.tabStyle(!isQa),
+      baselineStyle: this.segStyle(!this.state.hybrid),
+      hybridStyle: this.segStyle(this.state.hybrid),
+      citeOpen: !!this.state.cite,
+      cite: this.state.cite ?? {},
+      closeCite: () => this.setState({ cite: null }),
+      setQa: () => this.setState({ mode: 'qa' }),
+      setShortlist: () => this.setState({ mode: 'shortlist' }),
+      goQa: () => this.setState({ mode: 'qa' }, () => this.focusResults()),
+      goShortlist: () => this.setState({ mode: 'shortlist' }, () => this.focusResults()),
+      toggleAdv: () => this.setState(s => ({ advOpen: !(s.advOpen ?? (this.props.advancedOpen ?? false)) })),
+      setTopK: (e) => this.setState({ topK: +e.target.value }),
+      setThreshold: (e) => this.setState({ threshold: +e.target.value }),
+      setResultState: (e) => this.setState({ resultState: e.target.value }),
+      setQuestion: (e) => this.setState({ question: e.target.value }),
+      setBaseline: () => this.setState({ hybrid: false }),
+      setHybrid: () => this.setState({ hybrid: true }),
+      flag: () => this.setState({ flagged: true }),
+      doPrint: () => window.print(),
+      submit: () => this.focusResults(),
+      tags: [
+        { label: 'New baby', on: false },
+        { label: 'Caring for a parent', on: true },
+        { label: 'Lost my job', on: false },
+        { label: 'Studying or upskilling', on: false },
+        { label: 'Ongoing medical treatment', on: true },
+        { label: 'Buying or renting a home', on: false },
+      ],
+      docCount: 148,
+      asOf: '28 Jul 2026',
+      examples: [
+        { q: 'What do I get from the GST Voucher this year?', ask: askScheme('What do I get from the GST Voucher this year?') },
+        { q: 'Do I qualify for Workfare if I drive a private-hire car?', ask: askScheme('Do I qualify for Workfare if I drive a private-hire car?') },
+        { q: 'How do I claim relief for supporting my parents?', ask: askScheme('How do I claim relief for supporting my parents?') },
+      ],
+      glossary: [
+        { term: 'Annual value (AV)', def: 'The yearly rent your home could fetch if it were rented out. It is printed on your property tax notice and decides many voucher tiers — it is not what you paid for the flat.' },
+        { term: 'Assessable income (AI)', def: 'Your income for a year after allowable deductions, as assessed by IRAS. Most schemes read it from your latest tax assessment.' },
+        { term: 'Year of Assessment (YA)', def: 'The year in which last year\u2019s income is taxed. Income earned in 2026 is assessed in YA 2027.' },
+      ],
+      sources: [
+        { n: '1', scheme: 'CPF Cash Top-up Relief', ref: ev.cpf.ref, score: ev.cpf.score, excerpt: ev.cpf.excerpt, thumb: false, open: this.opener(ev.cpf) },
+        { n: '2', scheme: 'Qualifying conditions — top-ups to loved ones', ref: ev.cond.ref, score: ev.cond.score, excerpt: ev.cond.excerpt, thumb: true, thumbKind: 'FIGURE', thumbLabel: 'p.4', open: this.opener(ev.cond) },
+        { n: '3', scheme: 'Retirement Sum Topping-Up Scheme', ref: ev.rstu.ref, score: ev.rstu.score, excerpt: ev.rstu.excerpt, thumb: true, thumbKind: 'VIDEO ▸', thumbLabel: '02:14', open: this.opener(ev.rstu) },
+      ],
+      diagnostics: [
+        { chunk: 'iras#31', score: '0.86', delta: '▲ 2', state: 'used', stateColor: ok },
+        { chunk: 'cpf#9', score: '0.79', delta: '· 0', state: 'used', stateColor: ok },
+        { chunk: 'vid#2', score: '0.72', delta: '▲ 4', state: 'used', stateColor: ok },
+        { chunk: 'iras#33', score: '0.64', delta: '▼ 1', state: 'kept, uncited', stateColor: mut },
+        { chunk: 'cpf#14', score: '0.58', delta: '▼ 3', state: 'below threshold', stateColor: warn },
+      ],
+      droppedNote: '3 of 9 candidates dropped at sim<' + (this.state.threshold / 100).toFixed(2) + ' · 1 duplicate merged',
+      compare: [
+        { metric: 'recall@5', baseline: '0.62', hybrid: '0.81', delta: '▲ 0.19', deltaColor: ok },
+        { metric: 'cited@3', baseline: '2', hybrid: '3', delta: '▲ 1', deltaColor: ok },
+        { metric: 'latency', baseline: '410ms', hybrid: '735ms', delta: '▲ 325ms', deltaColor: warn },
+        { metric: 'unsupported', baseline: '1', hybrid: '0', delta: '▼ 1', deltaColor: ok },
+      ],
+      groups: [
+        { title: 'Possibly eligible', dot: ok, count: '3 schemes',
+          blurb: 'Your answers match the conditions stated in the documents. You still need to apply and be assessed.',
+          items: [
+            { name: 'GST Voucher — Cash', amount: '$450 or $850', amountColor: 'var(--color-text)',
+              reason: 'Your flat type and income band fall inside the limits the factsheet states. Which of the two amounts applies depends on the annual value of your home.',
+              checkSummary: '2 of 3 conditions matched · 1 not checked',
+              checks: [ { label: 'Citizenship', dot: ok }, { label: 'Income band', dot: ok }, { label: 'Annual value of home — not checked', dot: mut } ],
+              changer: 'The annual value on your property tax notice decides which tier applies. Above $21,000 gives the lower amount.',
+              cite: 'GSTV factsheet · p.2', open: this.opener(ev.gstv), ask: askScheme('How is the annual value of my home used for the GST Voucher?') },
+            { name: 'CDC Vouchers', amount: '$500 per household', amountColor: 'var(--color-text)',
+              reason: 'The document states every Singaporean household is eligible, with one claim per household.',
+              checkSummary: '1 of 1 condition matched',
+              checks: [ { label: 'Singaporean household', dot: ok } ],
+              changer: 'Only one person per household can claim. If someone at home already claimed, yours will show as used.',
+              cite: 'CDC scheme page · s.1', open: this.opener(ev.cdc), ask: askScheme('Who in my household should claim the CDC Vouchers?') },
+            { name: 'Workfare Income Supplement', amount: 'Amount not stated for your band', amountColor: 'var(--color-muted)',
+              reason: 'You are above the stated minimum age and inside the income band. The document also requires CPF contributions in the qualifying months, which this shortlist cannot check.',
+              checkSummary: '2 of 4 conditions matched · 2 not checked',
+              checks: [ { label: 'Age 30+', dot: ok }, { label: 'Income ≤ $2,500', dot: ok }, { label: 'CPF contributions — not checked', dot: mut }, { label: 'Property ownership — not checked', dot: mut } ],
+              changer: 'CPF contributions for work done in the qualifying period. Check your CPF statement — no contributions means no payout, whatever your income.',
+              cite: 'WIS conditions · s.3.1 · p.7', open: this.opener(ev.wis), ask: askScheme('Which months of CPF contributions count for Workfare?') },
+          ] },
+        { title: 'Likely not eligible, or unclear', dot: warn, count: '2 schemes',
+          blurb: 'Either your answers fall outside a stated condition, or the documents do not settle it.',
+          items: [
+            { name: 'Silver Support Scheme', amount: '—', amountColor: 'var(--color-muted)',
+              reason: 'The document requires age 65 or older. You entered 41, so this would apply later, not now.',
+              checkSummary: '1 of 3 conditions failed · 2 not reached',
+              checks: [ { label: 'Age 65+ — not met', dot: warn }, { label: 'Flat type', dot: ok }, { label: 'Lifetime CPF cap — not checked', dot: mut } ],
+              changer: 'Age. Nothing you can do now — the scheme identifies recipients automatically once you turn 65.',
+              cite: 'Silver Support criteria · p.3', open: this.opener(ev.silver), ask: askScheme('When will I be assessed for Silver Support?') },
+            { name: 'ComCare Short-to-Medium-Term Assistance', amount: '—', amountColor: 'var(--color-muted)',
+              reason: 'Unclear. Support depends on a caseworker assessment of your household situation, which no retrieved document defines as a fixed rule.',
+              checkSummary: '0 of 2 conditions decidable from the documents',
+              checks: [ { label: 'Household need — caseworker decides', dot: warn }, { label: 'Family support available — unknown', dot: mut } ],
+              changer: 'A visit to a Social Service Office. The documents set no income cut-off, so only an assessment can answer this.',
+              cite: 'ComCare overview · s.2', open: this.opener(ev.comcare), ask: askScheme('What should I bring to a Social Service Office?') },
+          ] },
+        { title: 'Not assessed', dot: mut, count: '2 schemes',
+          blurb: 'Left out on purpose. Nothing here counts against you.',
+          items: [
+            { name: 'Working Mother\u2019s Child Relief', amount: '—', amountColor: 'var(--color-muted)',
+              reason: 'Your profile does not say whether you have children, so the conditions could not be checked.',
+              checkSummary: '0 of 3 conditions checked',
+              checks: [ { label: 'Child details — not provided', dot: mut } ],
+              changer: 'Tick “New baby” or add child details to the profile, and this scheme will be assessed.',
+              cite: 'No condition evaluated', open: this.opener(ev.cpf), ask: askScheme('What is Working Mother\u2019s Child Relief?') },
+            { name: 'MediSave Care', amount: '—', amountColor: 'var(--color-muted)',
+              reason: 'Your question mentioned medical bills, but no retrieved passage cleared the similarity threshold for this scheme.',
+              checkSummary: 'no passage above sim ' + (this.state.threshold / 100).toFixed(2),
+              checks: [ { label: 'Retrieval below threshold', dot: mut } ],
+              changer: 'A more specific question — name the condition or the type of bill — usually pulls the right section in.',
+              cite: 'Below retrieval threshold', open: this.opener(ev.comcare), ask: askScheme('What help is there for long-term care costs?') },
+          ] },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

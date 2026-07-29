@@ -1,0 +1,35 @@
+/* ledger-navy theme tokens — standardized (foundations + component states) */
+[data-theme="ledger-navy"] {
+  /* brand */
+  --color-primary:#4A7FA6; --color-primary-hover:#6391B2; --color-primary-active:#437295; --color-primary-soft:rgba(74,127,166,0.16); --color-on-primary:#FFFFFF;
+  --color-secondary:#C9A227; --color-secondary-hover:#D1AF45; --color-secondary-active:#B59223;
+  --color-accent:#4A7FA6; --color-accent-2:#C9A227; --color-accent-3:#6FA287;
+  /* surfaces */
+  --color-bg:#0B1220; --color-surface:#131B2E; --color-card:#1B2540; --color-border:#263257;
+  --color-text:#F1F4F9; --color-muted:#8B95A8; --color-inverse:#0B1220;
+  /* semantic */
+  --color-success:#3FA373; --color-warning:#C9A227; --color-error:#C1553A; --color-alert:#C1553A; --color-info:#4A7FA6;
+  --color-success-bg:rgba(63,163,115,0.16); --color-warning-bg:rgba(201,162,39,0.16);
+  --color-error-bg:rgba(193,85,58,0.16); --color-info-bg:rgba(74,127,166,0.16);
+  /* data series */
+  --color-series-1:#4A7FA6; --color-series-2:#C9A227; --color-series-3:#6FA287; --color-series-4:#B0673F; --color-series-5:#8B7EC8;
+  /* type */
+  --font-heading:'Inter',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --fs-h1:38px; --fs-h2:28px; --fs-h3:20px; --fs-body:15px; --fs-caption:12px;
+  --fw-heading:600; /* @kind other */
+  --fw-medium:500; /* @kind other */
+  --fw-body:400; /* @kind other */
+  --lh-heading:1.12; /* @kind other */
+  --lh-body:1.6; /* @kind other */
+  --tracking-caption:.12em;
+  /* spacing */
+  --space-unit:8px; --space-1:8px; --space-2:16px; --space-3:24px; --space-4:32px; --space-6:48px; --space-8:64px;
+  --pad-card:24px; --pad-section:48px; --gap-grid:20px;
+  /* radius + elevation */
+  --radius-sm:4px; --radius-md:6px; --radius-lg:10px; --radius-pill:999px;
+  --elev-1:0 1px 2px rgba(0,0,0,0.6); --elev-2:0 8px 24px rgba(0,0,0,0.55); --elev-3:0 20px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(74,127,166,0.18);
+  /* interaction states */
+  --focus-ring:0 0 0 3px rgba(74,127,166,0.45); --color-disabled-bg:#232A36; --color-disabled-text:#8B95A8;
+  --input-bg:#101626; --input-border:#263257; --input-border-focus:#4A7FA6; --input-border-error:#C1553A; --input-placeholder:#8B95A8;
+  --shape:corporate; /* @kind other */
+}

@@ -1,0 +1,35 @@
+/* warm-earth theme tokens — standardized (foundations + component states) */
+[data-theme="warm-earth"] {
+  /* brand */
+  --color-primary:#EA580C; --color-primary-hover:#CE4D0B; --color-primary-active:#B24309; --color-primary-soft:#FCE8DD; --color-on-primary:#FFFFFF;
+  --color-secondary:#78350F; --color-secondary-hover:#6A2F0D; --color-secondary-active:#5B280B;
+  --color-accent:#EA580C; --color-accent-2:#78350F; --color-accent-3:#D97706;
+  /* surfaces */
+  --color-bg:#F5F5F4; --color-surface:#FFFFFF; --color-card:#FFFFFF; --color-border:#E7E5E4;
+  --color-text:#1C1917; --color-muted:#78716C; --color-inverse:#FFFFFF;
+  /* semantic */
+  --color-success:#15803D; --color-warning:#D97706; --color-error:#B91C1C; --color-alert:#B91C1C; --color-info:#0E7490;
+  --color-success-bg:#DEEDE4; --color-warning-bg:#FAECDC;
+  --color-error-bg:#F5DFDF; --color-info-bg:#DDECEF;
+  /* data series */
+  --color-series-1:#EA580C; --color-series-2:#78350F; --color-series-3:#D97706; --color-series-4:#B45309; --color-series-5:#A8A29E;
+  /* type */
+  --font-heading:'Figtree',sans-serif; --font-body:'Figtree',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --fs-h1:42px; --fs-h2:30px; --fs-h3:22px; --fs-body:16px; --fs-caption:12px;
+  --fw-heading:700; /* @kind other */
+  --fw-medium:500; /* @kind other */
+  --fw-body:400; /* @kind other */
+  --lh-heading:1.12; /* @kind other */
+  --lh-body:1.6; /* @kind other */
+  --tracking-caption:.12em;
+  /* spacing */
+  --space-unit:8px; --space-1:8px; --space-2:16px; --space-3:24px; --space-4:32px; --space-6:48px; --space-8:64px;
+  --pad-card:24px; --pad-section:48px; --gap-grid:20px;
+  /* radius + elevation */
+  --radius-sm:12px; --radius-md:20px; --radius-lg:28px; --radius-pill:999px;
+  --elev-1:0 1px 2px rgba(10,10,10,0.06); --elev-2:0 6px 18px rgba(10,10,10,0.08); --elev-3:0 20px 44px rgba(10,10,10,0.12);
+  /* interaction states */
+  --focus-ring:0 0 0 3px rgba(234,88,12,0.45); --color-disabled-bg:#E6E6E5; --color-disabled-text:#78716C;
+  --input-bg:#FFFFFF; --input-border:#E7E5E4; --input-border-focus:#EA580C; --input-border-error:#B91C1C; --input-placeholder:#78716C;
+  --shape:pill; /* @kind other */
+}

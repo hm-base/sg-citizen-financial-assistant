@@ -22,6 +22,7 @@
     </div>
     <div class="header-actions">
       <span id="provider-indicator" class="provider-indicator hidden"></span>
+      <button id="advanced-toggle-button" class="advanced-toggle-btn" type="button" aria-expanded="false">Advanced</button>
       <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
     </div>
   </header>
@@ -29,6 +30,56 @@
   <div class="mode-toggle" role="tablist" aria-label="Assistant mode">
     <button class="mode-btn active" data-mode="general" role="tab">General Q&amp;A</button>
     <button class="mode-btn" data-mode="profile" role="tab">Personal eligibility shortlist</button>
+  </div>
+
+  <div id="advanced-band" class="advanced-band hidden">
+    <div class="advanced-band-inner">
+      <div class="advanced-band-header">
+        <span class="advanced-band-label">Advanced &middot; retrieval</span>
+        <span class="advanced-band-note">Team demo controls. Not shown to residents.</span>
+      </div>
+      <div class="advanced-controls-row">
+        <label>Top K <input id="control-top-k" type="number" min="1" max="20" /></label>
+        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" /></label>
+        <label>Retrieval mode
+          <select id="control-mode">
+            <option value="dense">Dense (baseline)</option>
+            <option value="hybrid">Hybrid (improved)</option>
+          </select>
+        </label>
+        <label class="checkbox-label">
+          <input id="control-rewrite" type="checkbox" />
+          Rewrite before retrieval
+        </label>
+        <label class="checkbox-label">
+          <input id="control-diagnostics-full" type="checkbox" />
+          Show retrieval gain (doubles retrieval cost)
+        </label>
+      </div>
+
+      <div class="dev-only-note">Developer diagnostics below are never shown to residents.</div>
+
+      <div id="diagnostics-panel" class="diagnostics-panel hidden">
+        <div class="diag-row">
+          <span class="diag-row-label">as typed</span>
+          <span id="diag-raw-query" class="diag-query"></span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-row-label">rewritten</span>
+          <span id="diag-rewritten-query" class="diag-query diag-query-rewritten"></span>
+        </div>
+        <div id="diag-subqueries" class="diag-subqueries"></div>
+        <div id="diag-ops" class="diag-ops"></div>
+        <div id="diag-gain" class="diag-gain"></div>
+        <table class="diag-chunks-table">
+          <thead><tr><th>chunk_id</th><th>score</th></tr></thead>
+          <tbody id="diag-chunks-body"></tbody>
+        </table>
+        <div id="diag-dropped" class="diag-dropped"></div>
+      </div>
+
+      <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
+    </div>
   </div>
 
   <main class="layout">
@@ -94,58 +145,34 @@
         <button id="profile-button" class="primary-btn">Get shortlist</button>
       </div>
 
-      <details class="advanced-panel">
-        <summary>Advanced (demo controls)</summary>
-        <!-- Initial values are populated from GET /api/config on page load. -->
-        <label>Top K <input id="control-top-k" type="number" min="1" max="20" /></label>
-        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" /></label>
-        <label>Retrieval mode
-          <select id="control-mode">
-            <option value="dense">Dense (baseline)</option>
-            <option value="hybrid">Hybrid (improved)</option>
-          </select>
-        </label>
-        <label class="checkbox-label">
-          <input id="control-rewrite" type="checkbox" />
-          Rewrite before retrieval
-        </label>
-        <label class="checkbox-label">
-          <input id="control-diagnostics-full" type="checkbox" />
-          Show retrieval gain (doubles retrieval cost)
-        </label>
-
-        <div class="dev-only-note">Developer diagnostics below are never shown to residents.</div>
-
-        <div id="diagnostics-panel" class="diagnostics-panel hidden">
-          <div class="diag-row">
-            <span class="diag-row-label">as typed</span>
-            <span id="diag-raw-query" class="diag-query"></span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row-label">rewritten</span>
-            <span id="diag-rewritten-query" class="diag-query diag-query-rewritten"></span>
-          </div>
-          <div id="diag-subqueries" class="diag-subqueries"></div>
-          <div id="diag-ops" class="diag-ops"></div>
-          <div id="diag-gain" class="diag-gain"></div>
-          <table class="diag-chunks-table">
-            <thead><tr><th>chunk_id</th><th>score</th></tr></thead>
-            <tbody id="diag-chunks-body"></tbody>
-          </table>
-          <div id="diag-dropped" class="diag-dropped"></div>
-        </div>
-
-        <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
-      </details>
     </section>
 
     <section class="answer-panel">
       <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
 
       <div id="general-answer-view">
-        <div id="answer-text" class="answer-text" aria-live="polite"></div>
-        <h2>Sources</h2>
-        <ul id="sources-list" class="sources-list"></ul>
+        <div class="answer-card">
+          <div class="answer-card-kicker">
+            <span class="answer-kicker-label">Answer</span>
+            <span id="answer-meta" class="answer-meta-mono"></span>
+          </div>
+          <div id="answer-text" class="answer-text" aria-live="polite"></div>
+          <div class="info-callout">
+            <span class="info-callout-dot"></span>
+            <span>This summarises published documents, not tax advice.</span>
+          </div>
+          <div class="answer-actions">
+            <button type="button" class="answer-action-btn" id="answer-check-btn">Check if this applies to me</button>
+            <button type="button" class="answer-action-btn" id="answer-print-btn">Print this answer</button>
+            <button type="button" class="answer-action-btn answer-action-btn-flag" id="answer-wrong-btn">This looks wrong</button>
+          </div>
+        </div>
+
+        <div id="sources-card" class="sources-card hidden">
+          <h2>Sources</h2>
+          <ul id="sources-list" class="sources-list"></ul>
+          <button type="button" id="sources-expand-btn" class="sources-expand-btn hidden"></button>
+        </div>
       </div>
 
       <div id="shortlist-view" class="hidden" aria-live="polite"></div>

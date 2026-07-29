@@ -23,7 +23,13 @@ RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "dense")
 # fail-open contract) and is the main lever for the required retrieval-quality
 # comparison, so it should be on unless a request explicitly opts out.
 ENABLE_QUERY_REWRITE = os.getenv("ENABLE_QUERY_REWRITE", "true").lower() == "true"
-REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "0.5"))
+# A real LLM round-trip (even fast providers like Groq) routinely takes
+# 500ms-1.5s depending on prompt size and load. 500ms sounded reasonable on
+# paper but meant the rewrite lost the race almost every time in practice,
+# fail-opening to the raw query and making rewriting look broken. 3s keeps a
+# hard ceiling (still fails open past that) while giving a real call room to
+# finish.
+REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "3.0"))
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

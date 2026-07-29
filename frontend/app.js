@@ -31,14 +31,24 @@ const generalPanel = document.getElementById("general-panel");
 const profilePanel = document.getElementById("profile-panel");
 const modeButtons = document.querySelectorAll(".mode-btn");
 
+function setMode(mode) {
+  modeButtons.forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+  state.mode = mode;
+  generalPanel.classList.toggle("hidden", mode !== "general");
+  profilePanel.classList.toggle("hidden", mode !== "profile");
+}
+
 modeButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    modeButtons.forEach((b) => b.classList.remove("active"));
-    button.classList.add("active");
-    state.mode = button.dataset.mode;
-    generalPanel.classList.toggle("hidden", state.mode !== "general");
-    profilePanel.classList.toggle("hidden", state.mode !== "profile");
-  });
+  button.addEventListener("click", () => setMode(button.dataset.mode));
+});
+
+const advancedToggleButton = document.getElementById("advanced-toggle-button");
+const advancedBand = document.getElementById("advanced-band");
+
+advancedToggleButton.addEventListener("click", () => {
+  const isOpen = advancedBand.classList.toggle("hidden") === false;
+  advancedToggleButton.setAttribute("aria-expanded", String(isOpen));
+  advancedToggleButton.classList.toggle("active", isOpen);
 });
 
 // Curated per-topic FAQ starters for the demo. Purely a UI convenience — each
@@ -277,18 +287,217 @@ function thumbnailUrl(thumbnailPath) {
   return index === -1 ? normalized : `/media/${normalized.slice(index + marker.length)}`;
 }
 
-function renderThumbnail(source, item) {
-  if (!source.thumbnail_path) return;
-  const image = document.createElement("img");
-  image.className = "source-thumbnail";
-  image.src = thumbnailUrl(source.thumbnail_path);
-  image.alt = `Thumbnail for ${source.scheme_name || "source"}`;
-  image.loading = "lazy";
-  item.appendChild(image);
+// Caps a source excerpt to ~2-3 sentences / ~300 chars so the Sources panel
+// never dumps a whole OCR'd page. The full chunk text is preserved
+// separately on the record and only ever shown in the source-passage drawer.
+// Scraped SupportGoWhere pages repeat the same nav/footer boilerplate on
+// every chunk ("Read this in: English | ... Share link", the "Scheme last
+// updated" footer). Stripping it before capping means the excerpt starts on
+// the actual scheme text instead of language-picker chrome.
+const BOILERPLATE_PATTERNS = [
+  /^Support\s+Resources\s*&\s*Tools\s+Read this in:.*?Share link\s*/i,
+  /Scheme last updated.*$/is,
+];
+
+function capExcerpt(text, maxChars = 300) {
+  if (!text) return "";
+  let cleaned = text;
+  BOILERPLATE_PATTERNS.forEach((pattern) => {
+    cleaned = cleaned.replace(pattern, " ");
+  });
+  const trimmed = cleaned.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= maxChars) return trimmed;
+  const sliced = trimmed.slice(0, maxChars);
+  const lastEnd = Math.max(sliced.lastIndexOf(". "), sliced.lastIndexOf("? "), sliced.lastIndexOf("! "));
+  const cut = lastEnd > maxChars * 0.4 ? sliced.slice(0, lastEnd + 1) : sliced;
+  return `${cut.trim()}…`;
+}
+
+// Mirrors generation.prompts.extract_cited_scheme_labels: finds every
+// "[scheme_name, section_or_page]" (or "[a, b; c, d]") bracket citation in
+// the answer text and returns its character span plus the (name, location)
+// pairs it names, in order of appearance.
+function extractCitedLabelSpans(answer) {
+  const spans = [];
+  const bracketRe = /\[([^\[\]]+)\]/g;
+  let match;
+  while ((match = bracketRe.exec(answer)) !== null) {
+    const pairs = [];
+    match[1].split(";").forEach((segment) => {
+      const commaIndex = segment.indexOf(",");
+      if (commaIndex === -1) return;
+      const name = segment.slice(0, commaIndex).trim();
+      const location = segment.slice(commaIndex + 1).trim();
+      if (name && location) pairs.push({ name, location });
+    });
+    spans.push({ start: match.index, end: match.index + match[0].length, pairs });
+  }
+  return spans;
+}
+
+// Groups retrieved source records by document (display_name, falling back to
+// scheme_name) so the same document cited at two different page ranges
+// becomes one Sources entry with two passages inside it, not two entries.
+function buildDocIndex() {
+  const docsByLabel = new Map();
+  const docs = [];
+  return {
+    docs,
+    addSource(source) {
+      const docLabel = source.display_name || source.scheme_name;
+      let doc = docsByLabel.get(docLabel);
+      if (!doc) {
+        doc = { number: docs.length + 1, docLabel, passages: [] };
+        docsByLabel.set(docLabel, doc);
+        docs.push(doc);
+      }
+      const alreadyHasPassage = doc.passages.some((p) => p.source.chunk_id === source.chunk_id);
+      if (!alreadyHasPassage) doc.passages.push({ source });
+      return doc;
+    },
+  };
 }
 
 const generalAnswerView = document.getElementById("general-answer-view");
 const shortlistView = document.getElementById("shortlist-view");
+const sourcesCard = document.getElementById("sources-card");
+const sourcesExpandBtn = document.getElementById("sources-expand-btn");
+const SOURCES_COLLAPSED_COUNT = 3;
+
+function renderSourceEntry(doc, list) {
+  const item = document.createElement("li");
+  item.className = "source-entry";
+
+  const indexDiv = document.createElement("div");
+  indexDiv.className = "source-index";
+  indexDiv.textContent = String(doc.number);
+  item.appendChild(indexDiv);
+
+  const body = document.createElement("div");
+  body.className = "source-body";
+
+  const title = document.createElement("div");
+  title.className = "source-title";
+  title.textContent = doc.docLabel;
+  body.appendChild(title);
+
+  doc.passages.forEach(({ source }) => {
+    const passageDiv = document.createElement("div");
+    passageDiv.className = "source-passage";
+
+    const refLine = document.createElement("div");
+    refLine.className = "source-ref";
+    const score = typeof source.score === "number" ? source.score.toFixed(2) : null;
+    refLine.textContent = score ? `${source.section_or_page} · sim ${score}` : source.section_or_page;
+    passageDiv.appendChild(refLine);
+
+    const excerptDiv = document.createElement("div");
+    excerptDiv.className = "source-excerpt";
+    excerptDiv.textContent = capExcerpt(source.text);
+    passageDiv.appendChild(excerptDiv);
+
+    const showBtn = document.createElement("button");
+    showBtn.type = "button";
+    showBtn.className = "source-show-btn";
+    showBtn.textContent = "Show passage in context";
+    showBtn.addEventListener("click", () =>
+      openSourceDrawer({
+        doc_label: doc.docLabel,
+        section: source.section_or_page,
+        score: source.score,
+        chunk_id: source.chunk_id,
+        text: source.text,
+      })
+    );
+    passageDiv.appendChild(showBtn);
+
+    body.appendChild(passageDiv);
+  });
+
+  item.appendChild(body);
+
+  const firstThumbnail = doc.passages.find((p) => p.source.thumbnail_path);
+  if (firstThumbnail) {
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className = "source-thumb";
+    const image = document.createElement("img");
+    image.src = thumbnailUrl(firstThumbnail.source.thumbnail_path);
+    image.alt = `Thumbnail for ${doc.docLabel}`;
+    image.loading = "lazy";
+    thumbWrap.appendChild(image);
+    item.appendChild(thumbWrap);
+  }
+
+  list.appendChild(item);
+}
+
+function renderSources(docs) {
+  const list = document.getElementById("sources-list");
+  list.innerHTML = "";
+  sourcesCard.classList.toggle("hidden", docs.length === 0);
+  if (!docs.length) return;
+
+  const collapsed = docs.length > SOURCES_COLLAPSED_COUNT;
+  const visible = collapsed ? docs.slice(0, SOURCES_COLLAPSED_COUNT) : docs;
+  visible.forEach((doc) => renderSourceEntry(doc, list));
+
+  if (!collapsed) {
+    sourcesExpandBtn.classList.add("hidden");
+    return;
+  }
+  sourcesExpandBtn.classList.remove("hidden");
+  sourcesExpandBtn.textContent = `Show all ${docs.length} sources`;
+  sourcesExpandBtn.onclick = () => {
+    docs.slice(SOURCES_COLLAPSED_COUNT).forEach((doc) => renderSourceEntry(doc, list));
+    sourcesExpandBtn.classList.add("hidden");
+  };
+}
+
+// Rebuilds the answer text as DOM nodes (never innerHTML) so bracket
+// citations like "[GST Voucher, p.2]" become clickable mono superscript
+// markers "[1]" that map onto the deduplicated Sources list below, instead
+// of the raw scheme/section text sitting inline in the sentence.
+function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
+  const container = document.getElementById("answer-text");
+  container.innerHTML = "";
+  const spans = extractCitedLabelSpans(answer);
+
+  let cursor = 0;
+  spans.forEach((span) => {
+    if (span.start > cursor) {
+      container.appendChild(document.createTextNode(answer.slice(cursor, span.start)));
+    }
+    const numbers = [];
+    let firstDoc = null;
+    span.pairs.forEach(({ name, location }) => {
+      const source = sourcesByKey.get(`${name} ${location}`);
+      if (!source) return; // unresolved citation: dropped, not rendered as a broken marker
+      const doc = docIndex.addSource(source);
+      if (!numbers.includes(doc.number)) numbers.push(doc.number);
+      if (!firstDoc) firstDoc = doc;
+    });
+    if (numbers.length) {
+      const marker = document.createElement("sup");
+      marker.className = "citation-marker";
+      marker.textContent = `[${numbers.join(",")}]`;
+      marker.addEventListener("click", () => {
+        const { source } = firstDoc.passages[0];
+        openSourceDrawer({
+          doc_label: firstDoc.docLabel,
+          section: source.section_or_page,
+          score: source.score,
+          chunk_id: source.chunk_id,
+          text: source.text,
+        });
+      });
+      container.appendChild(marker);
+    }
+    cursor = span.end;
+  });
+  if (cursor < answer.length) {
+    container.appendChild(document.createTextNode(answer.slice(cursor)));
+  }
+}
 
 function renderResult(result) {
   generalAnswerView.classList.remove("hidden");
@@ -297,35 +506,43 @@ function renderResult(result) {
   const badge = document.getElementById("answer-abstained-badge");
   badge.classList.toggle("hidden", !result.abstained);
 
-  document.getElementById("answer-text").textContent = result.answer;
+  const sources = result.sources || [];
+  const sourcesByKey = new Map();
+  sources.forEach((source) => sourcesByKey.set(`${source.scheme_name} ${source.section_or_page}`, source));
+
+  const docIndex = buildDocIndex();
+  renderAnswerTextWithCitations(result.answer || "", sourcesByKey, docIndex);
+
+  // Fallback: if no bracket citation resolved to a known source (e.g. the
+  // model abstained, or omitted citations), still show what was retrieved
+  // rather than leaving the Sources panel empty.
+  if (!docIndex.docs.length) {
+    sources.forEach((source) => docIndex.addSource(source));
+  }
+  renderSources(docIndex.docs);
+
+  const retrievalMode = result.diagnostics && result.diagnostics.retrieval ? result.diagnostics.retrieval.mode : null;
+  const docCount = docIndex.docs.length;
+  document.getElementById("answer-meta").textContent = retrievalMode
+    ? `${docCount} source${docCount === 1 ? "" : "s"} · ${retrievalMode} retrieval`
+    : `${docCount} source${docCount === 1 ? "" : "s"}`;
+
   renderCitationWarning(result);
   renderDiagnostics(result.diagnostics);
-
-  const list = document.getElementById("sources-list");
-  list.innerHTML = "";
-  (result.sources || []).forEach((source) => {
-    const item = document.createElement("li");
-
-    const schemeDiv = document.createElement("div");
-    schemeDiv.className = "scheme-name";
-    schemeDiv.textContent = source.scheme_name;
-    item.appendChild(schemeDiv);
-
-    const sectionDiv = document.createElement("div");
-    sectionDiv.className = "section";
-    sectionDiv.textContent = source.section_or_page;
-    item.appendChild(sectionDiv);
-
-    renderThumbnail(source, item);
-
-    const excerptDiv = document.createElement("div");
-    excerptDiv.className = "excerpt";
-    excerptDiv.textContent = source.text;
-    item.appendChild(excerptDiv);
-
-    list.appendChild(item);
-  });
 }
+
+document.getElementById("answer-check-btn").addEventListener("click", () => setMode("profile"));
+document.getElementById("answer-print-btn").addEventListener("click", () => window.print());
+document.getElementById("answer-wrong-btn").addEventListener("click", (event) => {
+  const button = event.currentTarget;
+  const original = button.textContent;
+  button.textContent = "Thanks, noted";
+  button.disabled = true;
+  setTimeout(() => {
+    button.textContent = original;
+    button.disabled = false;
+  }, 2500);
+});
 
 const GROUP_ORDER = ["eligible", "unclear", "not_assessed"];
 const GROUP_LABELS = {
@@ -482,7 +699,20 @@ function renderError(message) {
   generalAnswerView.classList.remove("hidden");
   shortlistView.classList.add("hidden");
   document.getElementById("answer-text").textContent = message;
+  document.getElementById("answer-meta").textContent = "";
   document.getElementById("sources-list").innerHTML = "";
+  sourcesCard.classList.add("hidden");
+  sourcesExpandBtn.classList.add("hidden");
+}
+
+const answerPanel = document.querySelector(".answer-panel");
+
+// Results render into the right column, which sits below the input form on
+// narrow/short viewports and after switching tabs -- scroll it into view so
+// a new answer or shortlist is visible without the user having to scroll
+// down and hunt for it every time.
+function scrollResultIntoView() {
+  answerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function submitQuery(button, loadingLabel, url, payload) {
@@ -520,6 +750,7 @@ async function submitQuery(button, loadingLabel, url, payload) {
   } finally {
     button.disabled = false;
     button.textContent = originalLabel;
+    scrollResultIntoView();
   }
 }
 
