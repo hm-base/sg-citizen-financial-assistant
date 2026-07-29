@@ -873,16 +873,47 @@ function renderCitationChips(citations, container) {
   });
 }
 
-const CONDITION_STATE_LABEL = { met: "", not_met: "not checked", not_checked: "not checked" };
+// The blocking condition is what the reader came for, so it sorts first,
+// not wherever the model happened to list it (§2).
+const CONDITION_SORT_ORDER = { not_met: 0, not_checked: 1, met: 2 };
+const CONDITION_CHIPS_CAP = 4;
+
+// Best-effort, view-layer-only heuristic: a "changer" that just restates an
+// immutable fact ("being born in 1973 or earlier would change the
+// assessment") helps nobody -- the resident cannot act on it.
+const IMMUTABLE_CHANGER_PATTERNS = [
+  /\bborn\b/i,
+  /\byear of birth\b/i,
+  /\bdate of birth\b/i,
+  /\bage[ds]?\s+\d/i,
+  /\bcitizenship at birth\b/i,
+];
+function isImmutableChanger(changerText) {
+  return IMMUTABLE_CHANGER_PATTERNS.some((pattern) => pattern.test(changerText));
+}
 
 function renderConditionChips(conditions, container) {
-  conditions.forEach((condition) => {
+  const sorted = [...conditions].sort(
+    (a, b) => (CONDITION_SORT_ORDER[a.state] ?? 1) - (CONDITION_SORT_ORDER[b.state] ?? 1)
+  );
+  const visible = sorted.slice(0, CONDITION_CHIPS_CAP);
+  visible.forEach((condition) => {
     const chip = document.createElement("span");
     chip.className = `condition-chip condition-${condition.state}`;
+    const dot = document.createElement("span");
+    dot.className = "condition-chip-dot";
+    chip.appendChild(dot);
     const suffix = condition.state === "not_met" ? " — not met" : condition.state === "not_checked" ? " — not checked" : "";
-    chip.textContent = `${condition.label}${suffix}`;
+    chip.appendChild(document.createTextNode(`${condition.label}${suffix}`));
     container.appendChild(chip);
   });
+  const remaining = sorted.length - visible.length;
+  if (remaining > 0) {
+    const more = document.createElement("span");
+    more.className = "condition-chip-more";
+    more.textContent = `+${remaining} more`;
+    container.appendChild(more);
+  }
 }
 
 function renderShortlistEntry(entry) {
@@ -896,7 +927,9 @@ function renderShortlistEntry(entry) {
   header.appendChild(schemeName);
   const amount = document.createElement("span");
   amount.className = "shortlist-amount";
-  amount.textContent = entry.amount || "Amount not stated";
+  // "—" per row, never a repeated "Amount not stated" -- that's said once,
+  // in the group blurb, by renderShortlistGroupCard below (§2).
+  amount.textContent = entry.amount || "—";
   header.appendChild(amount);
   card.appendChild(header);
 
@@ -912,7 +945,11 @@ function renderShortlistEntry(entry) {
     card.appendChild(conditionsDiv);
   }
 
-  if (entry.changer) {
+  // Dropped for immutable facts (year of birth, citizenship at birth, etc.)
+  // rather than printing a tautology like "being born in 1973 or earlier
+  // would change the assessment" -- content-only heuristic at the view
+  // layer, since rewriting the LLM's own changer text is out of scope here.
+  if (entry.changer && !isImmutableChanger(entry.changer)) {
     const changerDiv = document.createElement("div");
     changerDiv.className = "shortlist-changer";
     const changerLabel = document.createElement("span");
@@ -1048,7 +1085,13 @@ function renderShortlist(result) {
 
     const blurb = document.createElement("p");
     blurb.className = "shortlist-group-blurb";
-    blurb.textContent = GROUP_BLURBS[group];
+    // "Amount not stated" is said once here, not once per row (the row
+    // itself just prints "—") -- avoids repeating near-identical grey mono
+    // text down a whole column (§2).
+    const anyAmountMissing = entries.some((entry) => !entry.amount);
+    blurb.textContent = anyAmountMissing
+      ? `${GROUP_BLURBS[group]} Amount not stated in the documents where blank.`
+      : GROUP_BLURBS[group];
     groupCard.appendChild(blurb);
 
     if (!entries.length) {

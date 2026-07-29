@@ -1181,34 +1181,50 @@ textarea:focus, select:focus, input:focus {
 
 .shortlist-reason {
   margin: 6px 0 8px;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text);
 }
 
 .condition-chips, .citation-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-bottom: 8px;
 }
 
+/* One neutral treatment for every condition state -- a row of outlined
+   red/green/grey pills read as an alarm. State lives in the dot + label
+   text instead (three channels: dot, colour, text), so it survives
+   greyscale (§2). */
 .condition-chip {
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
   padding: 3px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  color: var(--color-text);
+  border: none;
+}
+
+.condition-chip-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.condition-chip.condition-not_met .condition-chip-dot { background: var(--color-warning); }
+.condition-chip.condition-not_checked .condition-chip-dot { background: var(--color-muted); }
+.condition-chip.condition-met .condition-chip-dot { background: var(--color-success); }
+
+.condition-chip-more {
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--color-muted);
-  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
-}
-
-.condition-chip.condition-met {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.condition-chip.condition-not_met {
-  color: var(--color-error);
-  border-color: var(--color-error);
 }
 
 .shortlist-changer {
