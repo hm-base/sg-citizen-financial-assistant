@@ -1,0 +1,152 @@
+# Official payout / eligibility graphics for OCR modality (Jony)
+# Files live under data/raw/images/{wis,sctp,ccp}/ — indexed by ingestion.build_index
+
+- doc_id: cpf_wis_how_much_table_1
+  url: https://www.cpf.gov.sg/service/article/how-much-workfare-income-supplement-will-i-get
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis how much table 1"
+  local_path: data/raw/images/wis/cpf_wis_how_much_table_1.png
+  meta: data/meta/cpf_wis_how_much_table_1.json
+
+- doc_id: cpf_wis_how_much_table_2
+  url: https://www.cpf.gov.sg/service/article/how-much-workfare-income-supplement-will-i-get
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis how much table 2"
+  local_path: data/raw/images/wis/cpf_wis_how_much_table_2.png
+  meta: data/meta/cpf_wis_how_much_table_2.json
+
+- doc_id: cpf_wis_how_much_table_3
+  url: https://www.cpf.gov.sg/service/article/how-much-workfare-income-supplement-will-i-get
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis how much table 3"
+  local_path: data/raw/images/wis/cpf_wis_how_much_table_3.png
+  meta: data/meta/cpf_wis_how_much_table_3.json
+
+- doc_id: cpf_wis_how_much_table_4
+  url: https://www.cpf.gov.sg/service/article/how-much-workfare-income-supplement-will-i-get
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis how much table 4"
+  local_path: data/raw/images/wis/cpf_wis_how_much_table_4.png
+  meta: data/meta/cpf_wis_how_much_table_4.json
+
+- doc_id: cpf_wis_payment_schedule_table
+  url: https://www.cpf.gov.sg/service/article/when-will-i-get-my-workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis payment schedule table"
+  local_path: data/raw/images/wis/cpf_wis_payment_schedule_table.png
+  meta: data/meta/cpf_wis_payment_schedule_table.json
+
+- doc_id: cpf_wis_scheme_table_1
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis scheme table 1"
+  local_path: data/raw/images/wis/cpf_wis_scheme_table_1.png
+  meta: data/meta/cpf_wis_scheme_table_1.json
+
+- doc_id: cpf_wis_scheme_table_2
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis scheme table 2"
+  local_path: data/raw/images/wis/cpf_wis_scheme_table_2.png
+  meta: data/meta/cpf_wis_scheme_table_2.json
+
+- doc_id: cpf_wis_scheme_table_3
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis scheme table 3"
+  local_path: data/raw/images/wis/cpf_wis_scheme_table_3.png
+  meta: data/meta/cpf_wis_scheme_table_3.json
+
+- doc_id: cpf_wis_scheme_table_4
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis scheme table 4"
+  local_path: data/raw/images/wis/cpf_wis_scheme_table_4.png
+  meta: data/meta/cpf_wis_scheme_table_4.json
+
+- doc_id: cpf_wis_scheme_table_5
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: image
+  topic: Workfare_WIS
+  scheme: Workfare Income Supplement
+  agency: CPF
+  title: "cpf wis scheme table 5"
+  local_path: data/raw/images/wis/cpf_wis_scheme_table_5.png
+  meta: data/meta/cpf_wis_scheme_table_5.json
+
+- doc_id: ssg_sctp_scheme_overview
+  url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/skillsfuture-career-transition-programme.html
+  modality: image
+  topic: SkillsFuture_SCTP
+  scheme: SkillsFuture Credit / SCTP
+  agency: SSG
+  title: "ssg sctp scheme overview"
+  local_path: data/raw/images/sctp/ssg_sctp_scheme_overview.png
+  meta: data/meta/ssg_sctp_scheme_overview.json
+
+- doc_id: ssg_skillsfuture_credit_amounts
+  url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/SkillsFuture_Credit.html
+  modality: image
+  topic: SkillsFuture_SCTP
+  scheme: SkillsFuture Credit / SCTP
+  agency: SSG
+  title: "ssg skillsfuture credit amounts"
+  local_path: data/raw/images/sctp/ssg_skillsfuture_credit_amounts.png
+  meta: data/meta/ssg_skillsfuture_credit_amounts.json
+
+- doc_id: swda_ccp_factsheet_eligibility_graphic_p1
+  url: https://www.swda.gov.sg/docs/programme/38b67413-cd3c-4968-8587-d370c4dc9256/ccp-factsheet-jul-2026.pdf
+  modality: image
+  topic: Career_Conversion_CCP
+  scheme: Career Conversion Programme
+  agency: SWDA
+  title: "swda ccp factsheet eligibility graphic p1"
+  local_path: data/raw/images/ccp/swda_ccp_factsheet_eligibility_graphic_p1.png
+  meta: data/meta/swda_ccp_factsheet_eligibility_graphic_p1.json
+
+- doc_id: swda_ccp_factsheet_eligibility_graphic_p2
+  url: https://www.swda.gov.sg/docs/programme/38b67413-cd3c-4968-8587-d370c4dc9256/ccp-factsheet-jul-2026.pdf
+  modality: image
+  topic: Career_Conversion_CCP
+  scheme: Career Conversion Programme
+  agency: SWDA
+  title: "swda ccp factsheet eligibility graphic p2"
+  local_path: data/raw/images/ccp/swda_ccp_factsheet_eligibility_graphic_p2.png
+  meta: data/meta/swda_ccp_factsheet_eligibility_graphic_p2.json
+
+- doc_id: wsg_ccp_individuals_eligibility
+  url: https://www.wsg.gov.sg/home/individuals/attachment-placement-programmes/career-conversion-programmes-for-individuals
+  modality: image
+  topic: Career_Conversion_CCP
+  scheme: Career Conversion Programme
+  agency: WSG
+  title: "wsg ccp individuals eligibility"
+  local_path: data/raw/images/ccp/wsg_ccp_individuals_eligibility.png
+  meta: data/meta/wsg_ccp_individuals_eligibility.json

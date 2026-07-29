@@ -1,0 +1,14 @@
+{
+  "doc_id": "cpf_wis_payment_schedule_table",
+  "title": "cpf wis payment schedule table",
+  "source_url": "https://www.cpf.gov.sg/service/article/when-will-i-get-my-workfare-income-supplement",
+  "agency": "CPF",
+  "topic": "Workfare_WIS",
+  "scheme": "Workfare Income Supplement",
+  "tier": "A",
+  "retrieved_on": "2026-07-29",
+  "doc_type": "scheme_page",
+  "modality": "image",
+  "owner": "Jony",
+  "local_path": "data/raw/images/wis/cpf_wis_payment_schedule_table.png"
+}

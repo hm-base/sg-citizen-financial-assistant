@@ -43,6 +43,10 @@ CATEGORY_BY_FOLDER = {
     "ccp": "Lower-income/employment",
     "aiap": "Lower-income/employment",
     "snaic": "Lower-income/employment",
+    # Drive / datasets topic folder names (same category)
+    "workfare_wis": "Lower-income/employment",
+    "skillsfuture_sctp": "Lower-income/employment",
+    "career_conversion_ccp": "Lower-income/employment",
 }
 
 
