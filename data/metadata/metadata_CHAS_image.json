@@ -1,0 +1,72 @@
+[
+  {
+    "doc_id": "CHAS1",
+    "title": "CHAS new HealthierSG Chronic Tier",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS2",
+    "title": "CHAS Chronic Tier",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS3",
+    "title": "CHAS Chronic Tier Bill",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS4",
+    "title": "CHAS Information 1",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS5",
+    "title": "CHAS Information 2",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS6",
+    "title": "CHAS Bill Itemisation Medical",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "CHAS7",
+    "title": "CHAS Bill Itemisation Dental",
+    "source_url": "https://www.chas.sg",
+    "agency": "MOH",
+    "topic": "CHAS",
+    "scheme": "CHAS",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  }
+]

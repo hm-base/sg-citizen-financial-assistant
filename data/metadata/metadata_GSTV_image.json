@@ -1,0 +1,52 @@
+[
+  {
+    "doc_id": "GSTV1",
+    "title": "gst voucher types",
+    "source_url": "https://www.govbenefits.gov.sg/government-benefits-schemes/gst-voucher/",
+    "agency": "MOH",
+    "topic": "GSTV",
+    "scheme": "GSTV",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "GSTV2",
+    "title": "gst voucher annual value of residence tier",
+    "source_url": "https://www.govbenefits.gov.sg/government-benefits-schemes/gst-voucher/",
+    "agency": "MOH",
+    "topic": "GSTV",
+    "scheme": "GSTV",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "GSTV3",
+    "title": "gst voucher senior citizen",
+    "source_url": "https://www.govbenefits.gov.sg/government-benefits-schemes/gst-voucher/",
+    "agency": "MOH",
+    "topic": "GSTV",
+    "scheme": "GSTV",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "GSTV4",
+    "title": "gst voucher AI AV definitions",
+    "source_url": "https://www.govbenefits.gov.sg/government-benefits-schemes/gst-voucher/",
+    "agency": "MOH",
+    "topic": "GSTV",
+    "scheme": "GSTV",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "GSTV5",
+    "title": "gst voucher payment modes and dates",
+    "source_url": "https://www.govbenefits.gov.sg/government-benefits-schemes/gst-voucher/",
+    "agency": "MOH",
+    "topic": "GSTV",
+    "scheme": "GSTV",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  }
+]

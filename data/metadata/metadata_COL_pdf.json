@@ -1,0 +1,22 @@
+[
+  {
+    "doc_id": "COL_policies",
+    "title": "Cost of Living Policies",
+    "source_url": "https://supportgowhere.life.gov.sg/schemes/ESbwvFrn/enhanced-budget-2026-cost-of-living-special-payment",
+    "agency": "MOF",
+    "topic": "COL",
+    "scheme": "COL",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "COL_faq",
+    "title": "Cost of Living FAQs",
+    "source_url": "https://supportgowhere.life.gov.sg/schemes/ESbwvFrn/enhanced-budget-2026-cost-of-living-special-payment",
+    "agency": "MOF",
+    "topic": "COL",
+    "scheme": "COL",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  }
+]
