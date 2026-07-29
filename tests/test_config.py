@@ -5,7 +5,7 @@ import os
 def test_config_defaults(monkeypatch):
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     import config
     importlib.reload(config)
 
@@ -23,12 +23,12 @@ def test_config_defaults(monkeypatch):
 
 
 def test_config_reads_env_overrides(monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "grok")
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
     monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini-key")
-    monkeypatch.setenv("GROK_API_KEY", "fake-grok-key")
+    monkeypatch.setenv("GROQ_API_KEY", "fake-groq-key")
     import config
     importlib.reload(config)
 
-    assert config.LLM_PROVIDER == "grok"
+    assert config.LLM_PROVIDER == "groq"
     assert config.GEMINI_API_KEY == "fake-gemini-key"
-    assert config.GROK_API_KEY == "fake-grok-key"
+    assert config.GROQ_API_KEY == "fake-groq-key"

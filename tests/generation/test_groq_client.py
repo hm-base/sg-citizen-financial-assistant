@@ -1,4 +1,4 @@
-from generation.grok_client import GrokClient
+from generation.groq_client import GroqClient
 
 
 class FakeMessage:
@@ -16,7 +16,7 @@ class FakeCompletion:
         self.choices = [FakeChoice(content)]
 
 
-class FakeGrokSDK:
+class FakeGroqSDK:
     def __init__(self, content: str):
         self.content = content
         self.calls = []
@@ -26,13 +26,13 @@ class FakeGrokSDK:
         return FakeCompletion(self.content)
 
 
-def test_grok_client_generate_returns_message_content():
-    fake_sdk = FakeGrokSDK("Answer: [Silver Support Scheme, Eligibility]")
-    client = GrokClient(api_key="fake-key", model_name="grok-2-latest", sdk_client=fake_sdk)
+def test_groq_client_generate_returns_message_content():
+    fake_sdk = FakeGroqSDK("Answer: [Silver Support Scheme, Eligibility]")
+    client = GroqClient(api_key="fake-key", model_name="llama-3.3-70b-versatile", sdk_client=fake_sdk)
 
     result = client.generate("What is Silver Support?")
 
     assert result == "Answer: [Silver Support Scheme, Eligibility]"
     model, messages = fake_sdk.calls[0]
-    assert model == "grok-2-latest"
+    assert model == "llama-3.3-70b-versatile"
     assert messages[0]["content"] == "What is Silver Support?"

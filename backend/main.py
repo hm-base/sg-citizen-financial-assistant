@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import config
 from generation.gemini_client import GeminiClient
-from generation.grok_client import GrokClient
+from generation.groq_client import GroqClient
 from generation.pipeline import (
     RagIndex,
     ShortlistFormatError,
@@ -49,8 +49,8 @@ def get_rag_index() -> RagIndex:
 
 
 def get_llm_client():
-    if config.LLM_PROVIDER == "grok":
-        return GrokClient(api_key=config.GROK_API_KEY, model_name=config.GROK_MODEL)
+    if config.LLM_PROVIDER == "groq":
+        return GroqClient(api_key=config.GROQ_API_KEY, model_name=config.GROQ_MODEL)
     return GeminiClient(api_key=config.GEMINI_API_KEY, model_name=config.GEMINI_MODEL)
 
 

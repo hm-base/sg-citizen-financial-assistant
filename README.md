@@ -8,7 +8,7 @@ See `docs/superpowers/specs/2026-07-28-local-rag-implementation-design.md` for t
 2. `uv venv .venv` to create the virtual environment.
 3. `uv pip install -r requirements.txt --python .venv` (add `--system-certs` if you're behind a network that intercepts TLS, e.g. a corporate proxy).
 4. Install Tesseract OCR separately (e.g. `winget install UB-Mannheim.TesseractOCR` on Windows) and ensure it's on PATH.
-5. Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY` and/or `GROK_API_KEY`.
+5. Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY` and/or `GROQ_API_KEY` (Groq — fast open-model inference at groq.com, not xAI's Grok).
 6. Run `.venv\Scripts\pytest` (Windows) or `.venv/bin/pytest` (Unix) to verify the environment.
 
 ## Ingesting the Knowledge Base

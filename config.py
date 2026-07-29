@@ -27,7 +27,10 @@ REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "0.5"))
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GROK_API_KEY = os.getenv("GROK_API_KEY")
+# Groq (groq.com, fast open-model inference) is the fallback provider -- not
+# to be confused with xAI's Grok. An earlier version of this project pointed
+# at xAI's API by mistake; the key actually configured was always a Groq key.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # Pinned Gemini generation names get retired out from under this project:
 # gemini-1.5-flash now 404s ("not found for API version v1beta") and even
 # gemini-2.5-flash 404s for keys created after its cutoff ("no longer available
@@ -38,7 +41,7 @@ GROK_API_KEY = os.getenv("GROK_API_KEY")
 # mode. Pin a specific version via the GEMINI_MODEL env var when reproducibility
 # matters more than availability (e.g. gemini-3.6-flash, gemini-3.5-flash-lite).
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
-GROK_MODEL = os.getenv("GROK_MODEL", "grok-2-latest")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 FALLBACK_MESSAGE = (
     "The available knowledge base does not contain enough information "
