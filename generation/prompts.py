@@ -14,23 +14,40 @@ Rules:
 4. Keep answers concise and in plain language suitable for a member of the public.
 """
 
-PROFILE_SYSTEM_RULES = f"""You help a Singapore resident understand which schemes in the provided \
-passages they may be eligible for.
+#: Grouping is derived in code from each entry's `conditions`, never taken from the
+#: model's prose -- see generation.pipeline._derive_group. The model only reports
+#: per-condition state; it does not decide which bucket an entry lands in.
+PROFILE_SHORTLIST_SYSTEM_RULES = """You help a Singapore resident understand which schemes in the \
+provided passages they may be eligible for, based only on the profile and passages given.
+
+Output ONLY a raw JSON array (no markdown code fences, no commentary, no text before or after it). \
+Each element is an object with exactly these fields:
+
+{
+  "scheme": string -- the scheme's plain name (not the document title),
+  "reason": string -- ONE plain-language sentence, sentence case, under 25 words, no markdown, \
+stating what about this profile matched or did not match. Do not restate the criteria as a \
+question ("you may be eligible if..."); say what matched. Expand any acronym the first time it \
+appears in the sentence.,
+  "amount": string or null -- a dollar figure or payout tier, ONLY if the passages state one \
+verbatim. null if no figure is stated -- do not describe benefit types here.,
+  "conditions": [ {"label": string, "state": "met" | "not_met" | "not_checked"} ] -- every \
+eligibility criterion the passages state for this scheme, each judged against the profile. Use \
+"not_checked" only when the profile has no information to judge that criterion. Use an empty list \
+only if the passages state no evaluable criteria at all for this scheme.,
+  "changer": string -- ONE plain-language sentence: what fact, if different, would change this \
+scheme's assessment.,
+  "citation_chunk_ids": [string, ...] -- the exact chunk id(s) (from the "Allowed chunk ids" list \
+below) that support this entry. Every id you use MUST come from that list -- never invent, guess, \
+or reuse an id that is not listed. List each distinct source only once.
+}
 
 Rules:
-1. Use ONLY the numbered context passages. No outside knowledge.
-2. Output three sections only:
-   - Possibly eligible - scheme name, why (criteria quoted/paraphrased from passages), \
-amount/tier only if stated in passages, citations.
-   - Likely not eligible / unclear - scheme appears in context but a stated criterion conflicts \
-with the profile, or a required criterion is missing from passages.
-   - Not assessed - do not invent schemes that are absent from the passages.
-3. Never say "you are approved" or "you will receive." Use "based on the documents, you may be \
-eligible if ..."
-4. If income/age/citizenship thresholds are not in the passages, say so and put the scheme under \
-Likely not eligible / unclear, even if thematically relevant.
-5. Every factual claim must cite [scheme_name, section_or_page].
-6. If passages are insufficient for any shortlist, respond exactly with: "{FALLBACK_MESSAGE}"
+1. Use ONLY the numbered context passages below. No outside knowledge, no invented schemes.
+2. Every entry's citation_chunk_ids must be a subset of the allowed chunk ids provided. Do not cite \
+a chunk id that is not in that list.
+3. Never say "you are approved" or "you will receive."
+4. If the passages are insufficient to produce any entry, return an empty JSON array: []
 """
 
 
@@ -38,6 +55,14 @@ def _format_passages(retrieved: list[dict]) -> str:
     lines = []
     for chunk in retrieved:
         label = f"[{chunk['scheme_name']}, {chunk['section_or_page']}]"
+        lines.append(f"{label}\n{chunk['text']}")
+    return "\n\n".join(lines)
+
+
+def _format_passages_with_chunk_ids(retrieved: list[dict]) -> str:
+    lines = []
+    for chunk in retrieved:
+        label = f"[chunk_id: {chunk['chunk_id']} | {chunk['scheme_name']}, {chunk['section_or_page']}]"
         lines.append(f"{label}\n{chunk['text']}")
     return "\n\n".join(lines)
 
@@ -51,26 +76,52 @@ def build_general_qa_prompt(question: str, retrieved: list[dict]) -> str:
     )
 
 
-def build_profile_prompt(profile: dict, retrieved: list[dict], free_text_question: str = "") -> str:
+def build_profile_shortlist_prompt(
+    profile: dict, retrieved: list[dict], free_text_question: str = ""
+) -> str:
     question_line = free_text_question or "What can I get and roughly how much?"
+    allowed_ids = ", ".join(chunk["chunk_id"] for chunk in retrieved)
     return (
-        f"{PROFILE_SYSTEM_RULES}\n\n"
+        f"{PROFILE_SHORTLIST_SYSTEM_RULES}\n\n"
         f"User profile (bands only): {profile}\n\n"
-        f"Context passages:\n{_format_passages(retrieved)}\n\n"
+        f"Allowed chunk ids: [{allowed_ids}]\n\n"
+        f"Context passages:\n{_format_passages_with_chunk_ids(retrieved)}\n\n"
         f"Question: {question_line}\n"
-        f"Answer:"
+        f"JSON array:"
     )
 
 
-QUERY_REWRITE_RULES = """Rewrite the user's question into a short search query for retrieving \
-passages from official Singapore government scheme documents (ComCare, ElderFund, GST Voucher, \
-CDC Vouchers, CHAS, Silver Support, Workfare, HDB grants, MediSave/MediShield, CPF schemes, and \
-similar). Expand abbreviations and colloquial phrasing into the terms an official fact sheet would \
-use. Return ONLY the rewritten query on a single line, with no preamble, quotes, or explanation."""
+QUERY_REWRITE_SCHEMA_RULES = """Rewrite the resident's question into terms official Singapore \
+government scheme documents use, so retrieval can find the right passages.
+
+Output ONLY a raw JSON object (no markdown code fences, no commentary, no text before or after it):
+
+{
+  "rewritten": string -- one dense query in scheme terminology, optimized for retrieval,
+  "subQueries": [string, ...] -- 2-4 facet queries covering distinct aspects (e.g. eligibility, \
+amount, application process). Empty array if the question is already narrow and single-facet.,
+  "ops": [ {"kind": "expanded" | "resolved" | "named" | "added" | "dropped", "detail": string} ] \
+-- one entry per real change you made. Empty array if the question was already precise -- do not \
+pad it with invented changes.,
+  "inferredSchemes": [string, ...] -- likely scheme name(s) this question is about, if identifiable.
+}
+
+Rules:
+1. Expand relationship and colloquial terms into scheme vocabulary (e.g. "my mother" -> parent/\
+recipient, "top up" -> cash top-up to CPF Retirement Account, "my flat" -> housing type / annual \
+value).
+2. Name the likely scheme(s) in "rewritten" so exact-match keyword search can find it.
+3. Add implied facets the answer needs even if unstated (caps, citizenship conditions, qualifying \
+period, Year of Assessment) -- but never invent constraints the resident did not state.
+4. If the question is already precise, return it unchanged in "rewritten" with an empty ops array.
+"""
 
 
-def build_query_rewrite_prompt(question: str) -> str:
-    return f"{QUERY_REWRITE_RULES}\n\nQuestion: {question}\nRewritten query:"
+def build_query_rewrite_prompt(question: str, profile: dict | None = None) -> str:
+    profile_line = (
+        f"\n\nResident profile (bands only, in scope for this rewrite): {profile}" if profile else ""
+    )
+    return f"{QUERY_REWRITE_SCHEMA_RULES}{profile_line}\n\nQuestion: {question}\nJSON object:"
 
 
 def extract_cited_scheme_labels(answer: str) -> list[tuple[str, str]]:

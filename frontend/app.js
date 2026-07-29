@@ -141,6 +141,7 @@ const topKInput = document.getElementById("control-top-k");
 const thresholdInput = document.getElementById("control-threshold");
 const modeSelect = document.getElementById("control-mode");
 const rewriteCheckbox = document.getElementById("control-rewrite");
+const diagnosticsFullCheckbox = document.getElementById("control-diagnostics-full");
 const providerIndicator = document.getElementById("provider-indicator");
 
 // Defaults live in config.py; these are only a last resort for when /api/config
@@ -187,19 +188,85 @@ function readControls() {
   };
 }
 
-function renderCitationWarning(result) {
+// Developer-only affordance: rendered inside the Advanced panel, never in the
+// resident-facing answer view. Residents never see raw/unverified citations --
+// generation.pipeline already drops those from what they're shown.
+function renderDevWarnings(messages) {
   const banner = document.getElementById("citation-warning-banner");
-  const warnings = result.citation_warning || [];
-  if (!warnings.length) {
+  if (!messages.length) {
     banner.textContent = "";
     banner.classList.add("hidden");
     return;
   }
-  const labels = warnings.map((pair) => (Array.isArray(pair) ? `[${pair.join(", ")}]` : String(pair)));
-  banner.textContent =
-    `Citation check: the answer cites ${warnings.length} source label(s) that are not in the ` +
-    `retrieved sources below — ${labels.join(" ")}. Verify before relying on it.`;
+  banner.textContent = `Developer diagnostics: ${messages.join(" | ")}`;
   banner.classList.remove("hidden");
+}
+
+function renderCitationWarning(result) {
+  const warnings = result.citation_warning || [];
+  renderDevWarnings(
+    warnings.map((pair) => (Array.isArray(pair) ? `unverified citation [${pair.join(", ")}]` : String(pair)))
+  );
+}
+
+// Developer-only diagnostics panel (rewrite trace + retrieved chunks + gain).
+// Never rendered anywhere in the resident-facing answer view.
+function renderDiagnostics(diagnostics) {
+  const panel = document.getElementById("diagnostics-panel");
+  if (!diagnostics) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+
+  const rewrite = diagnostics.rewrite || {};
+  document.getElementById("diag-raw-query").textContent = rewrite.raw || "";
+  document.getElementById("diag-rewritten-query").textContent = rewrite.rewritten || "";
+
+  const subQueriesEl = document.getElementById("diag-subqueries");
+  subQueriesEl.innerHTML = "";
+  (rewrite.subQueries || []).forEach((sub) => {
+    const chip = document.createElement("span");
+    chip.className = "diag-subquery-chip";
+    chip.textContent = sub;
+    subQueriesEl.appendChild(chip);
+  });
+
+  const opsEl = document.getElementById("diag-ops");
+  opsEl.innerHTML = "";
+  (rewrite.ops || []).forEach((op) => {
+    const item = document.createElement("span");
+    item.className = `diag-op diag-op-${op.kind}`;
+    item.textContent = op.detail ? `${op.kind}: ${op.detail}` : op.kind;
+    opsEl.appendChild(item);
+  });
+
+  const gainEl = document.getElementById("diag-gain");
+  const gain = diagnostics.gain;
+  gainEl.textContent = gain
+    ? `gain: top1 sim raw=${gain.top1SimRaw.toFixed(3)} rewritten=${gain.top1SimRewritten.toFixed(3)} ` +
+      `· schemes above threshold Δ${gain.schemesAboveThresholdDelta >= 0 ? "+" : ""}${gain.schemesAboveThresholdDelta}` +
+      (rewrite.latencyMs !== undefined ? ` · rewrite ${rewrite.latencyMs}ms` : "")
+    : rewrite.latencyMs !== undefined
+      ? `rewrite ${rewrite.latencyMs}ms`
+      : "";
+
+  const chunksBody = document.getElementById("diag-chunks-body");
+  chunksBody.innerHTML = "";
+  const retrieval = diagnostics.retrieval || {};
+  (retrieval.chunks || []).forEach((chunk) => {
+    const row = document.createElement("tr");
+    const idCell = document.createElement("td");
+    idCell.textContent = chunk.chunk_id;
+    row.appendChild(idCell);
+    const scoreCell = document.createElement("td");
+    scoreCell.textContent = typeof chunk.score === "number" ? chunk.score.toFixed(3) : "";
+    row.appendChild(scoreCell);
+    chunksBody.appendChild(row);
+  });
+
+  document.getElementById("diag-dropped").textContent =
+    retrieval.dropped ? `${retrieval.dropped} candidate(s) dropped at top_k truncation` : "";
 }
 
 // Records store an on-disk path; data/raw/ is served read-only under /media/.
@@ -220,12 +287,19 @@ function renderThumbnail(source, item) {
   item.appendChild(image);
 }
 
+const generalAnswerView = document.getElementById("general-answer-view");
+const shortlistView = document.getElementById("shortlist-view");
+
 function renderResult(result) {
+  generalAnswerView.classList.remove("hidden");
+  shortlistView.classList.add("hidden");
+
   const badge = document.getElementById("answer-abstained-badge");
   badge.classList.toggle("hidden", !result.abstained);
 
   document.getElementById("answer-text").textContent = result.answer;
   renderCitationWarning(result);
+  renderDiagnostics(result.diagnostics);
 
   const list = document.getElementById("sources-list");
   list.innerHTML = "";
@@ -253,9 +327,160 @@ function renderResult(result) {
   });
 }
 
+const GROUP_ORDER = ["eligible", "unclear", "not_assessed"];
+const GROUP_LABELS = {
+  eligible: "Possibly eligible",
+  unclear: "Likely not eligible, or unclear",
+  not_assessed: "Not assessed",
+};
+const GROUP_BLURBS = {
+  eligible: "Your answers match the conditions stated in the documents. You still need to apply and be assessed.",
+  unclear: "Either your answers fall outside a stated condition, or the documents do not settle it.",
+  not_assessed: "The documents did not contain enough to evaluate this scheme against your profile.",
+};
+
+function openSourceDrawer(citation) {
+  document.getElementById("source-drawer-title").textContent = citation.doc_label;
+  const score = citation.score === null || citation.score === undefined ? "n/a" : citation.score.toFixed(3);
+  document.getElementById("source-drawer-meta").textContent =
+    `${citation.section} · sim ${score} · chunk_id ${citation.chunk_id}`;
+  document.getElementById("source-drawer-excerpt").textContent = citation.text || "";
+  document.getElementById("source-drawer").classList.remove("hidden");
+}
+
+document.getElementById("source-drawer-close").addEventListener("click", () => {
+  document.getElementById("source-drawer").classList.add("hidden");
+});
+
+function renderCitationChips(citations, container) {
+  citations.forEach((citation) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "citation-chip";
+    chip.textContent = `${citation.doc_label} · ${citation.section}`;
+    chip.addEventListener("click", () => openSourceDrawer(citation));
+    container.appendChild(chip);
+  });
+}
+
+const CONDITION_STATE_LABEL = { met: "", not_met: "not checked", not_checked: "not checked" };
+
+function renderConditionChips(conditions, container) {
+  conditions.forEach((condition) => {
+    const chip = document.createElement("span");
+    chip.className = `condition-chip condition-${condition.state}`;
+    const suffix = condition.state === "not_met" ? " — not met" : condition.state === "not_checked" ? " — not checked" : "";
+    chip.textContent = `${condition.label}${suffix}`;
+    container.appendChild(chip);
+  });
+}
+
+function renderShortlistEntry(entry) {
+  const card = document.createElement("div");
+  card.className = "shortlist-entry";
+
+  const header = document.createElement("div");
+  header.className = "shortlist-entry-header";
+  const schemeName = document.createElement("h4");
+  schemeName.textContent = entry.scheme;
+  header.appendChild(schemeName);
+  const amount = document.createElement("span");
+  amount.className = "shortlist-amount";
+  amount.textContent = entry.amount || "Amount not stated";
+  header.appendChild(amount);
+  card.appendChild(header);
+
+  const reason = document.createElement("p");
+  reason.className = "shortlist-reason";
+  reason.textContent = entry.reason;
+  card.appendChild(reason);
+
+  if (entry.conditions && entry.conditions.length) {
+    const conditionsDiv = document.createElement("div");
+    conditionsDiv.className = "condition-chips";
+    renderConditionChips(entry.conditions, conditionsDiv);
+    card.appendChild(conditionsDiv);
+  }
+
+  if (entry.changer) {
+    const changerDiv = document.createElement("div");
+    changerDiv.className = "shortlist-changer";
+    const changerLabel = document.createElement("span");
+    changerLabel.className = "shortlist-changer-label";
+    changerLabel.textContent = "What would change this: ";
+    changerDiv.appendChild(changerLabel);
+    changerDiv.appendChild(document.createTextNode(entry.changer));
+    card.appendChild(changerDiv);
+  }
+
+  if (entry.citations && entry.citations.length) {
+    const citationsDiv = document.createElement("div");
+    citationsDiv.className = "citation-chips";
+    renderCitationChips(entry.citations, citationsDiv);
+    card.appendChild(citationsDiv);
+  }
+
+  return card;
+}
+
+function renderShortlist(result) {
+  generalAnswerView.classList.add("hidden");
+  shortlistView.classList.remove("hidden");
+
+  const badge = document.getElementById("answer-abstained-badge");
+  badge.classList.toggle("hidden", !result.abstained);
+  renderDevWarnings(result.dev_warnings || []);
+  renderDiagnostics(result.diagnostics);
+
+  shortlistView.innerHTML = "";
+  const entriesByGroup = { eligible: [], unclear: [], not_assessed: [] };
+  (result.shortlist || []).forEach((entry) => entriesByGroup[entry.group].push(entry));
+
+  GROUP_ORDER.forEach((group) => {
+    const entries = entriesByGroup[group];
+    if (!entries.length) return;
+
+    const groupCard = document.createElement("div");
+    groupCard.className = `shortlist-group shortlist-group-${group}`;
+
+    const header = document.createElement("div");
+    header.className = "shortlist-group-header";
+    const dot = document.createElement("span");
+    dot.className = "shortlist-group-dot";
+    header.appendChild(dot);
+    const title = document.createElement("h3");
+    title.textContent = GROUP_LABELS[group];
+    header.appendChild(title);
+    const count = document.createElement("span");
+    count.className = "shortlist-group-count";
+    count.textContent = `${entries.length} scheme${entries.length === 1 ? "" : "s"}`;
+    header.appendChild(count);
+    groupCard.appendChild(header);
+
+    const blurb = document.createElement("p");
+    blurb.className = "shortlist-group-blurb";
+    blurb.textContent = GROUP_BLURBS[group];
+    groupCard.appendChild(blurb);
+
+    entries.forEach((entry) => groupCard.appendChild(renderShortlistEntry(entry)));
+    shortlistView.appendChild(groupCard);
+  });
+}
+
+function renderAnswer(result) {
+  if ("shortlist" in result) {
+    renderShortlist(result);
+  } else {
+    renderResult(result);
+  }
+}
+
 function renderError(message) {
   document.getElementById("answer-abstained-badge").classList.add("hidden");
   document.getElementById("citation-warning-banner").classList.add("hidden");
+  document.getElementById("diagnostics-panel").classList.add("hidden");
+  generalAnswerView.classList.remove("hidden");
+  shortlistView.classList.add("hidden");
   document.getElementById("answer-text").textContent = message;
   document.getElementById("sources-list").innerHTML = "";
 }
@@ -266,7 +491,12 @@ async function submitQuery(button, loadingLabel, url, payload) {
   button.disabled = true;
   button.textContent = loadingLabel;
   try {
-    const response = await fetch(url, {
+    // diagnostics=full doubles retrieval cost, so it is only sent when the
+    // Advanced panel's "Show retrieval gain" checkbox is explicitly on.
+    const requestUrl = diagnosticsFullCheckbox.checked
+      ? `${url}${url.includes("?") ? "&" : "?"}diagnostics=full`
+      : url;
+    const response = await fetch(requestUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -282,7 +512,7 @@ async function submitQuery(button, loadingLabel, url, payload) {
       renderError(`Something went wrong: ${detail}`);
       return;
     }
-    renderResult(await response.json());
+    renderAnswer(await response.json());
   } catch (error) {
     renderError(
       "Could not reach the assistant. Check that the server is running, then try again."

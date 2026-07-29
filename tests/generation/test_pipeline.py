@@ -1,9 +1,15 @@
+import json
 import logging
+import time
 
 import numpy as np
+import pytest
 
 from generation.pipeline import (
     RagIndex,
+    ShortlistFormatError,
+    _derive_group,
+    _resolve_citations,
     _retrieve,
     _rewrite_query,
     answer_general_question,
@@ -98,11 +104,32 @@ def test_answer_general_question_abstains_below_threshold_without_calling_llm():
         top_k=3,
         similarity_threshold=0.3,
         retrieval_mode="dense",
+        rewrite_query=False,
     )
 
     assert result["abstained"] is True
     assert "does not contain enough information" in result["answer"]
     assert llm_client.last_prompt is None
+
+
+def test_answer_general_question_abstains_after_one_rewrite_call_when_rewrite_enabled():
+    """With rewriting on (the default), the rewrite call happens before the
+    gate check -- so abstaining still skips the answer-generation call, but
+    not the rewrite call itself."""
+    rag_index = _build_rag_index()
+    llm_client = QueuedLLMClient([_rewrite_json("unrelated pet question")])
+
+    result = answer_general_question(
+        "unrelated pet question",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert result["abstained"] is True
+    assert len(llm_client.prompts) == 1
 
 
 def test_answer_general_question_flags_citation_not_in_retrieved_sources():
@@ -141,27 +168,78 @@ def test_answer_general_question_hybrid_mode_does_not_abstain_on_relevant_query(
     assert result["answer"] == "You may get up to $850 [GST Voucher, FAQ]."
 
 
-def test_rewrite_query_uses_llm_output():
-    llm_client = QueuedLLMClient(["gst voucher amount"])
+def _rewrite_json(rewritten, subQueries=None, ops=None, inferredSchemes=None):
+    return json.dumps({
+        "rewritten": rewritten,
+        "subQueries": subQueries or [],
+        "ops": ops or [],
+        "inferredSchemes": inferredSchemes or [],
+    })
 
-    rewritten = _rewrite_query("how much is that gst thing ah", llm_client)
 
-    assert rewritten == "gst voucher amount"
+def test_rewrite_query_returns_structured_diagnostics_from_llm_output():
+    llm_client = QueuedLLMClient([_rewrite_json("gst voucher amount", inferredSchemes=["GST Voucher"])])
+
+    result = _rewrite_query("how much is that gst thing ah", llm_client, enabled=True)
+
+    assert result["raw"] == "how much is that gst thing ah"
+    assert result["rewritten"] == "gst voucher amount"
+    assert result["inferredSchemes"] == ["GST Voucher"]
+    assert result["ops"] == []
     assert "how much is that gst thing ah" in llm_client.prompts[0]
 
 
-def test_rewrite_query_falls_back_to_original_when_llm_returns_blank():
-    llm_client = QueuedLLMClient(["   "])
+def test_rewrite_query_falls_back_to_raw_on_malformed_json():
+    llm_client = QueuedLLMClient(["not json at all"])
 
-    assert _rewrite_query("original question", llm_client) == "original question"
+    result = _rewrite_query("original question", llm_client, enabled=True)
+
+    assert result["rewritten"] == "original question"
+    assert result["ops"] == [{"kind": "failed"}]
 
 
-def test_answer_general_question_rewrites_query_before_retrieval_when_enabled():
+def test_rewrite_query_skipped_when_disabled():
+    llm_client = QueuedLLMClient([])
+
+    result = _rewrite_query("original question", llm_client, enabled=False)
+
+    assert result["rewritten"] == "original question"
+    assert result["ops"] == [{"kind": "skipped"}]
+    assert llm_client.prompts == []
+
+
+def test_rewrite_query_strips_nric_before_rewriting():
+    llm_client = QueuedLLMClient([_rewrite_json("caregiver support schemes")])
+
+    result = _rewrite_query("help for my dad, NRIC S1234567D", llm_client, enabled=True)
+
+    assert "S1234567D" not in llm_client.prompts[0]
+    assert any(op["kind"] == "dropped" for op in result["ops"])
+
+
+def test_rewrite_query_fails_open_on_timeout():
+    class SlowLLMClient:
+        def generate(self, prompt):
+            time.sleep(0.2)
+            return _rewrite_json("gst voucher amount")
+
+    result = _rewrite_query(
+        "how much is that gst thing ah", SlowLLMClient(), enabled=True, timeout_seconds=0.01
+    )
+
+    assert result["rewritten"] == "how much is that gst thing ah"
+    assert result["ops"] == [{"kind": "failed"}]
+
+
+def test_answer_general_question_fans_out_across_sub_queries():
     """The unrewritten question doesn't match any known embedding (FakeEmbedder
     falls back to the zero vector), so retrieval only succeeds because the
     rewrite step maps it to "gst voucher amount" first."""
     rag_index = _build_rag_index()
-    llm_client = QueuedLLMClient(["gst voucher amount", "You may get up to $850 [GST Voucher, FAQ]."])
+    llm_client = QueuedLLMClient([
+        _rewrite_json("gst voucher amount"),
+        "You may get up to $850 [GST Voucher, FAQ].",
+    ])
 
     result = answer_general_question(
         "how much is that gst thing ah",
@@ -175,11 +253,13 @@ def test_answer_general_question_rewrites_query_before_retrieval_when_enabled():
 
     assert result["abstained"] is False
     assert result["answer"] == "You may get up to $850 [GST Voucher, FAQ]."
+    assert result["diagnostics"]["rewrite"]["rewritten"] == "gst voucher amount"
+    assert result["diagnostics"]["retrieval"]["mode"] == "dense"
 
 
-def test_answer_general_question_does_not_rewrite_by_default():
+def test_answer_general_question_does_not_rewrite_when_explicitly_disabled():
     rag_index = _build_rag_index()
-    llm_client = QueuedLLMClient(["should never be used"])
+    llm_client = QueuedLLMClient([])
 
     result = answer_general_question(
         "how much is that gst thing ah",
@@ -188,10 +268,12 @@ def test_answer_general_question_does_not_rewrite_by_default():
         top_k=3,
         similarity_threshold=0.3,
         retrieval_mode="dense",
+        rewrite_query=False,
     )
 
     assert result["abstained"] is True
     assert llm_client.prompts == []
+    assert result["diagnostics"]["rewrite"]["ops"] == [{"kind": "skipped"}]
 
 
 class ThreeChunkEmbedder:
@@ -384,9 +466,22 @@ def test_no_citation_warning_logged_for_a_fully_grounded_answer(caplog):
     assert caplog.records == []
 
 
-def test_answer_profile_question_returns_grounded_shortlist():
+def _shortlist_json(entries: list[dict]) -> str:
+    return json.dumps(entries)
+
+
+def test_answer_profile_question_returns_structured_shortlist():
     rag_index = _build_rag_index()
-    llm_client = FakeLLMClient("Possibly eligible: GST Voucher [GST Voucher, FAQ].")
+    llm_client = FakeLLMClient(_shortlist_json([
+        {
+            "scheme": "GST Voucher",
+            "reason": "Household income and citizenship match the stated criteria.",
+            "amount": "$850",
+            "conditions": [{"label": "Singapore Citizen", "state": "met"}],
+            "changer": "A higher home annual value would reduce the amount.",
+            "citation_chunk_ids": ["gst-voucher_text_000"],
+        },
+    ]))
 
     result = answer_profile_question(
         {"age": 68, "life_stage_tags": [], "monthly_income_band": "<$1.5k"},
@@ -399,4 +494,144 @@ def test_answer_profile_question_returns_grounded_shortlist():
     )
 
     assert result["abstained"] is False
-    assert "Possibly eligible" in result["answer"]
+    entry = result["shortlist"][0]
+    assert entry["scheme"] == "GST Voucher"
+    assert entry["group"] == "eligible"
+    assert entry["amount"] == "$850"
+    assert entry["citations"] == [{
+        "doc_label": "GST Voucher",
+        "section": "FAQ",
+        "chunk_id": "gst-voucher_text_000",
+        "score": pytest.approx(1.0),
+        "text": "GST Voucher gives eligible households up to $850 in cash.",
+    }]
+
+
+def test_answer_profile_question_abstains_below_threshold_without_calling_llm():
+    rag_index = _build_rag_index()
+    llm_client = FakeLLMClient("should never be returned")
+
+    result = answer_profile_question(
+        {"age": 68, "life_stage_tags": []},
+        rag_index,
+        llm_client,
+        free_text_question="unrelated pet question",
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+        rewrite_query=False,
+    )
+
+    assert result["abstained"] is True
+    assert result["shortlist"] == []
+    assert result["sources"] == []
+    assert result["dev_warnings"] == []
+    assert llm_client.last_prompt is None
+
+
+def test_answer_profile_question_strips_markdown_code_fences():
+    rag_index = _build_rag_index()
+    fenced = "```json\n" + _shortlist_json([
+        {"scheme": "GST Voucher", "reason": "Matches.", "conditions": [], "changer": "n/a"},
+    ]) + "\n```"
+    llm_client = FakeLLMClient(fenced)
+
+    result = answer_profile_question(
+        {"age": 68, "life_stage_tags": []},
+        rag_index,
+        llm_client,
+        free_text_question="gst voucher amount",
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert result["shortlist"][0]["scheme"] == "GST Voucher"
+
+
+def test_answer_profile_question_retries_once_on_malformed_json_then_succeeds():
+    rag_index = _build_rag_index()
+    llm_client = QueuedLLMClient([
+        "this is not json at all",
+        _shortlist_json([{"scheme": "GST Voucher", "reason": "Matches.", "conditions": []}]),
+    ])
+
+    result = answer_profile_question(
+        {"age": 68, "life_stage_tags": []},
+        rag_index,
+        llm_client,
+        free_text_question="gst voucher amount",
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+        rewrite_query=False,
+    )
+
+    assert result["shortlist"][0]["scheme"] == "GST Voucher"
+    assert len(llm_client.prompts) == 2
+
+
+def test_answer_profile_question_fails_loudly_when_still_malformed_after_retry():
+    rag_index = _build_rag_index()
+    llm_client = QueuedLLMClient(["not json", "still not json"])
+
+    with pytest.raises(ShortlistFormatError):
+        answer_profile_question(
+            {"age": 68, "life_stage_tags": []},
+            rag_index,
+            llm_client,
+            free_text_question="gst voucher amount",
+            top_k=3,
+            similarity_threshold=0.3,
+            retrieval_mode="dense",
+            rewrite_query=False,
+        )
+
+
+def test_answer_profile_question_drops_citations_outside_the_retrieved_set_as_dev_warnings():
+    rag_index = _build_rag_index()
+    llm_client = FakeLLMClient(_shortlist_json([
+        {
+            "scheme": "GST Voucher",
+            "reason": "Matches.",
+            "conditions": [],
+            "changer": "n/a",
+            "citation_chunk_ids": ["gst-voucher_text_000", "made-up-chunk-id"],
+        },
+    ]))
+
+    result = answer_profile_question(
+        {"age": 68, "life_stage_tags": []},
+        rag_index,
+        llm_client,
+        free_text_question="gst voucher amount",
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert len(result["shortlist"][0]["citations"]) == 1
+    assert any("made-up-chunk-id" in warning for warning in result["dev_warnings"])
+
+
+def test_derive_group_from_conditions():
+    assert _derive_group([]) == "not_assessed"
+    assert _derive_group([{"label": "Age 65+", "state": "not_checked"}]) == "eligible"
+    assert _derive_group([{"label": "Age 65+", "state": "met"}]) == "eligible"
+    assert _derive_group([{"label": "Age 65+", "state": "not_met"}]) == "unclear"
+    assert _derive_group([
+        {"label": "Age 65+", "state": "met"},
+        {"label": "Income", "state": "not_met"},
+    ]) == "unclear"
+
+
+def test_resolve_citations_deduplicates_repeated_sources():
+    chunk_by_id = {
+        "a": {"scheme_name": "GST Voucher", "display_name": "GST Voucher", "section_or_page": "p.1"},
+        "b": {"scheme_name": "GST Voucher", "display_name": "GST Voucher", "section_or_page": "p.1"},
+    }
+
+    citations, warnings = _resolve_citations(["a", "b"], chunk_by_id)
+
+    assert len(citations) == 1
+    assert warnings == []

@@ -33,6 +33,41 @@ def test_build_chunk_records_attaches_all_fields():
         assert record["text"]
 
 
+def test_build_chunk_records_display_name_falls_back_to_scheme_name():
+    chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Some text."}]
+
+    records = build_chunk_records(
+        chunks,
+        doc_id="baby-bonus-scheme",
+        scheme_name="Baby Bonus Scheme",
+        category="Family",
+        modality="text",
+        source_file="data/raw/text/baby_bonus.pdf",
+        section_or_page="Eligibility, p.2",
+    )
+
+    assert records[0]["display_name"] == "Baby Bonus Scheme"
+
+
+def test_build_chunk_records_keeps_an_explicit_display_name():
+    chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Some text."}]
+
+    records = build_chunk_records(
+        chunks,
+        doc_id="comcare-smta",
+        scheme_name="Comcare Short To Medium Term Assistance (Smta) Supportgowhere",
+        category="Lower-income/employment",
+        modality="text",
+        source_file="data/raw/text/comcare/comcare-smta.pdf",
+        section_or_page="p.1",
+        display_name="ComCare Short-to-Medium-Term Assistance (SMTA) — SupportGoWhere",
+    )
+
+    assert records[0]["display_name"] == (
+        "ComCare Short-to-Medium-Term Assistance (SMTA) — SupportGoWhere"
+    )
+
+
 def test_build_chunk_records_image_modality_keeps_thumbnail():
     chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Payout tiers table."}]
 

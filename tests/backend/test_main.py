@@ -58,10 +58,19 @@ def test_api_query_returns_grounded_answer():
 
 
 def test_api_profile_query_returns_shortlist():
+    import json
+
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
-        "Possibly eligible: GST Voucher [GST Voucher, FAQ]."
-    )
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(json.dumps([
+        {
+            "scheme": "GST Voucher",
+            "reason": "Citizenship and income band match the stated criteria.",
+            "amount": "$850",
+            "conditions": [{"label": "Singapore Citizen", "state": "met"}],
+            "changer": "A higher home annual value would reduce the amount.",
+            "citation_chunk_ids": ["gst-voucher_text_000"],
+        },
+    ]))
     client = TestClient(app)
 
     response = client.post(
@@ -70,7 +79,23 @@ def test_api_profile_query_returns_shortlist():
     )
 
     assert response.status_code == 200
-    assert "Possibly eligible" in response.json()["answer"]
+    body = response.json()
+    assert body["shortlist"][0]["scheme"] == "GST Voucher"
+    assert body["shortlist"][0]["group"] == "eligible"
+    app.dependency_overrides.clear()
+
+
+def test_api_profile_query_returns_502_when_llm_never_returns_valid_json():
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("not json, sorry")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/profile-query",
+        json={"profile": {"age": 68, "life_stage_tags": []}, "free_text_question": "GST voucher amount"},
+    )
+
+    assert response.status_code == 502
     app.dependency_overrides.clear()
 
 
@@ -192,6 +217,24 @@ def test_explicit_rewrite_query_flag_calls_the_llm_for_rewriting_first():
     assert response.status_code == 200
     assert response.json()["abstained"] is False
     assert len(llm_client.prompts) == 2
+    app.dependency_overrides.clear()
+
+
+def test_diagnostics_full_query_param_computes_gain():
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+        "You may get up to $850 [GST Voucher, FAQ]."
+    )
+    client = TestClient(app)
+
+    without_gain = client.post("/api/query", json={"question": "GST voucher amount"})
+    with_gain = client.post(
+        "/api/query?diagnostics=full", json={"question": "GST voucher amount"}
+    )
+
+    assert without_gain.json()["diagnostics"]["gain"] is None
+    assert with_gain.json()["diagnostics"]["gain"] is not None
+    assert "top1SimRaw" in with_gain.json()["diagnostics"]["gain"]
     app.dependency_overrides.clear()
 
 

@@ -38,6 +38,7 @@ def run_single_question(
     retrieval_mode: str,
     top_k: int,
     similarity_threshold: float,
+    rewrite_query: bool = False,
 ) -> dict:
     if question_entry["category"] == "profile":
         result = answer_profile_question(
@@ -47,6 +48,7 @@ def run_single_question(
             top_k=top_k,
             similarity_threshold=similarity_threshold,
             retrieval_mode=retrieval_mode,
+            rewrite_query=rewrite_query,
         )
     else:
         result = answer_general_question(
@@ -56,16 +58,26 @@ def run_single_question(
             top_k=top_k,
             similarity_threshold=similarity_threshold,
             retrieval_mode=retrieval_mode,
+            rewrite_query=rewrite_query,
         )
+
+    # Profile questions return a structured "shortlist" (no free-text "answer");
+    # serialize it to JSON so both question categories share one CSV/JSON schema.
+    if "shortlist" in result:
+        generated_answer = json.dumps(result["shortlist"])
+        citation_warning = result.get("dev_warnings")
+    else:
+        generated_answer = result["answer"]
+        citation_warning = result.get("citation_warning")
 
     row = {
         "id": question_entry["id"],
         "category": question_entry["category"],
         "retrieved_chunk_ids": [source["chunk_id"] for source in result["sources"]],
         "retrieved_scores": [source.get("score") for source in result["sources"]],
-        "generated_answer": result["answer"],
+        "generated_answer": generated_answer,
         "abstained": result["abstained"],
-        "citation_warning": result.get("citation_warning"),
+        "citation_warning": citation_warning,
     }
     # Blank columns for the human 0-2 rubric; no automated scoring is attempted.
     row.update({field: None for field in RUBRIC_FIELDS})
@@ -104,13 +116,20 @@ def run_comparison(
     *,
     top_k: int = 5,
     similarity_threshold: float = 0.35,
+    rewrite_query: bool = False,
 ) -> dict:
+    """Query rewriting defaults OFF here even though it defaults on for the
+    live app: this comparison exists to isolate dense vs. hybrid *retrieval*,
+    and rewriting is a separate, orthogonal variable that would confound it
+    if left implicitly on. Pass rewrite_query=True to evaluate the two
+    together instead."""
     comparison = {}
     for mode in ("dense", "hybrid"):
         rows = [
             run_single_question(
                 entry, rag_index, llm_client,
                 retrieval_mode=mode, top_k=top_k, similarity_threshold=similarity_threshold,
+                rewrite_query=rewrite_query,
             )
             for entry in test_set
         ]

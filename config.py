@@ -19,7 +19,11 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K = 5
 SIMILARITY_THRESHOLD = 0.35
 RETRIEVAL_MODE = os.getenv("RETRIEVAL_MODE", "dense")
-ENABLE_QUERY_REWRITE = os.getenv("ENABLE_QUERY_REWRITE", "false").lower() == "true"
+# Default true: rewriting only ever helps recall (see generation.pipeline's
+# fail-open contract) and is the main lever for the required retrieval-quality
+# comparison, so it should be on unless a request explicitly opts out.
+ENABLE_QUERY_REWRITE = os.getenv("ENABLE_QUERY_REWRITE", "true").lower() == "true"
+REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "0.5"))
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

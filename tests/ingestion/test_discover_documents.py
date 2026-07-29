@@ -5,6 +5,7 @@ from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
 
 from ingestion.build_index import (
+    _display_name,
     _scheme_name,
     build_index_from_documents,
     category_for_path,
@@ -159,6 +160,27 @@ def test_scheme_name_collapses_separator_runs_into_a_single_space(tmp_path):
     assert _scheme_name(tmp_path / "comcare__long_term-assistance.pdf") == (
         "Comcare Long Term Assistance"
     )
+
+
+def test_display_name_preserves_original_casing_and_normalizes_the_separator(tmp_path):
+    assert _display_name(
+        tmp_path / "ComCare Short-to-Medium-Term Assistance (SMTA) - SupportGoWhere.pdf"
+    ) == "ComCare Short-to-Medium-Term Assistance (SMTA) — SupportGoWhere"
+    assert _display_name(tmp_path / "ElderFund _ AIC.pdf") == "ElderFund — AIC"
+    assert _display_name(
+        tmp_path / "GST Voucher (GSTV) – Cash - SupportGoWhere.pdf"
+    ) == "GST Voucher (GSTV) — Cash — SupportGoWhere"
+
+
+def test_discover_documents_carries_display_name_into_chunk_records(nested_corpus):
+    """_display_name preserves the filename's own casing rather than
+    title-casing it -- "silver-support.pdf" has no separator surrounded by
+    spaces, so it passes through unchanged. Real corpus filenames (e.g.
+    "ElderFund _ AIC.pdf") are naturally cased, unlike this slug-style
+    fixture name."""
+    docs = {doc["doc_id"]: doc for doc in discover_documents(nested_corpus)}
+
+    assert docs["silver-support"]["display_name"] == "silver-support"
 
 
 def test_category_for_path_falls_back_to_uncategorized(tmp_path):

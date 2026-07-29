@@ -40,8 +40,19 @@ def profile_shortlist(citizenship, age, income_band, housing, employment, free_t
         similarity_threshold=config.SIMILARITY_THRESHOLD,
         retrieval_mode=config.RETRIEVAL_MODE,
     )
-    sources = "\n".join(f"- {s['scheme_name']} ({s['section_or_page']})" for s in result["sources"])
-    return f"{result['answer']}\n\nSources:\n{sources}"
+    if result["abstained"]:
+        return config.FALLBACK_MESSAGE
+
+    lines = []
+    for entry in result["shortlist"]:
+        amount = entry["amount"] or "Amount not stated"
+        chips = ", ".join(f"{c['doc_label']} · {c['section']}" for c in entry["citations"])
+        lines.append(
+            f"[{entry['group']}] {entry['scheme']} — {amount}\n"
+            f"  {entry['reason']}\n"
+            f"  Sources: {chips}"
+        )
+    return "\n\n".join(lines) if lines else config.FALLBACK_MESSAGE
 
 
 with gr.Blocks(title="SG Citizen Financial Assistant (fallback)") as demo:

@@ -107,19 +107,59 @@
         </label>
         <label class="checkbox-label">
           <input id="control-rewrite" type="checkbox" />
-          Query rewriting (experimental)
+          Rewrite before retrieval
         </label>
+        <label class="checkbox-label">
+          <input id="control-diagnostics-full" type="checkbox" />
+          Show retrieval gain (doubles retrieval cost)
+        </label>
+
+        <div class="dev-only-note">Developer diagnostics below are never shown to residents.</div>
+
+        <div id="diagnostics-panel" class="diagnostics-panel hidden">
+          <div class="diag-row">
+            <span class="diag-row-label">as typed</span>
+            <span id="diag-raw-query" class="diag-query"></span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-row-label">rewritten</span>
+            <span id="diag-rewritten-query" class="diag-query diag-query-rewritten"></span>
+          </div>
+          <div id="diag-subqueries" class="diag-subqueries"></div>
+          <div id="diag-ops" class="diag-ops"></div>
+          <div id="diag-gain" class="diag-gain"></div>
+          <table class="diag-chunks-table">
+            <thead><tr><th>chunk_id</th><th>score</th></tr></thead>
+            <tbody id="diag-chunks-body"></tbody>
+          </table>
+          <div id="diag-dropped" class="diag-dropped"></div>
+        </div>
+
+        <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
       </details>
     </section>
 
     <section class="answer-panel">
       <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
-      <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
-      <div id="answer-text" class="answer-text" aria-live="polite"></div>
-      <h2>Sources</h2>
-      <ul id="sources-list" class="sources-list"></ul>
+
+      <div id="general-answer-view">
+        <div id="answer-text" class="answer-text" aria-live="polite"></div>
+        <h2>Sources</h2>
+        <ul id="sources-list" class="sources-list"></ul>
+      </div>
+
+      <div id="shortlist-view" class="hidden" aria-live="polite"></div>
     </section>
   </main>
+
+  <div id="source-drawer" class="source-drawer hidden">
+    <div class="source-drawer-header">
+      <span id="source-drawer-title"></span>
+      <button id="source-drawer-close" type="button" aria-label="Close source excerpt">&times;</button>
+    </div>
+    <div id="source-drawer-meta" class="source-drawer-meta"></div>
+    <div id="source-drawer-excerpt" class="source-drawer-excerpt"></div>
+  </div>
 
   <script src="app.js"></script>
 </body>

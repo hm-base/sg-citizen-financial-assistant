@@ -76,6 +76,33 @@ def test_run_single_question_includes_blank_human_rubric_columns():
         assert row[field] is None
 
 
+class FakeShortlistLLMClient:
+    def generate(self, prompt: str) -> str:
+        return json.dumps([{
+            "scheme": "GST Voucher",
+            "reason": "Matches the stated criteria.",
+            "conditions": [{"label": "Singapore Citizen", "state": "met"}],
+            "changer": "n/a",
+            "citation_chunk_ids": ["gst-voucher_text_000"],
+        }])
+
+
+def test_run_single_question_serializes_profile_shortlist_as_json():
+    question_entry = {
+        "id": "P1",
+        "category": "profile",
+        "profile": {"age": 68, "life_stage_tags": []},
+    }
+    row = run_single_question(
+        question_entry, _rag_index(), FakeShortlistLLMClient(),
+        retrieval_mode="dense", top_k=3, similarity_threshold=0.3,
+    )
+
+    parsed = json.loads(row["generated_answer"])
+    assert parsed[0]["scheme"] == "GST Voucher"
+    assert row["citation_warning"] == []
+
+
 def test_save_comparison_writes_json_and_csv(tmp_path):
     comparison = {
         "dense": {

@@ -102,6 +102,23 @@ def _scheme_name(path: Path) -> str:
     return re.sub(r"\s+", " ", spaced).strip().title()
 
 
+def _display_name(path: Path) -> str:
+    """A human-friendly title for UI citation chips, preserving the source
+    filename's own casing (e.g. "ComCare", "SMTA", "AIC") instead of
+    title-casing it into "Comcare"/"Smta"/"Aic".
+
+    Filenames use " - ", " _ ", or " – " (space-padded) as the separator
+    between the document title and its source site/agency, e.g.
+    "ComCare Short-to-Medium-Term Assistance (SMTA) - SupportGoWhere.pdf" or
+    "ElderFund _ AIC.pdf". Only that space-padded separator is normalized to
+    an em dash; hyphens inside real words ("Short-to-Medium-Term", "(LTA)")
+    are left untouched.
+    """
+    normalized = re.sub(r"\s+[-_–]\s+", " — ", path.stem)
+    normalized = normalized.rstrip(" _-")
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
 def _files_under(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
     if not directory.exists():
         return []
@@ -141,6 +158,7 @@ def discover_documents(
             "page_texts": page_texts,
             "doc_id": path.stem,
             "scheme_name": _scheme_name(path),
+            "display_name": _display_name(path),
             "category": category_for_path(path, text_dir),
             "modality": "text",
             "source_file": str(path),
@@ -160,6 +178,7 @@ def discover_documents(
             "text": text,
             "doc_id": path.stem,
             "scheme_name": _scheme_name(path),
+            "display_name": _display_name(path),
             "category": category_for_path(path, image_dir),
             "modality": "image",
             "source_file": str(path),
@@ -192,6 +211,7 @@ def discover_documents(
                 "text": text,
                 "doc_id": path.stem,
                 "scheme_name": _scheme_name(path),
+                "display_name": _display_name(path),
                 "category": category_for_path(path, video_dir),
                 "modality": "video",
                 "source_file": str(path),
@@ -251,6 +271,7 @@ def build_index_from_documents(documents: list[dict], embedder):
                     modality=doc["modality"],
                     source_file=doc["source_file"],
                     section_or_page=label,
+                    display_name=doc.get("display_name"),
                     source_url=doc.get("source_url", ""),
                     thumbnail_path=doc.get("thumbnail_path", ""),
                 )

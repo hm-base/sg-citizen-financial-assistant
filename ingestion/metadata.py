@@ -9,6 +9,7 @@ def build_chunk_records(
     section_or_page: str,
     source_url: str = "",
     thumbnail_path: str = "",
+    display_name: str | None = None,
 ) -> list[dict]:
     """
     Attach document-level metadata to chunk dicts from chunker.
@@ -24,11 +25,14 @@ def build_chunk_records(
         section_or_page: Location within the document (e.g., "Eligibility, p.2")
         source_url: Optional URL to the original document
         thumbnail_path: Optional path to thumbnail image (for image modality)
+        display_name: Human-friendly document title for UI citation chips
+                      (e.g. "ComCare SMTA — SupportGoWhere"); falls back to
+                      scheme_name when not given.
 
     Returns:
         List of dicts, each with keys:
         chunk_id, doc_id, scheme_name, category, modality, source_file,
-        section_or_page, source_url, thumbnail_path, text
+        section_or_page, source_url, thumbnail_path, display_name, text
     """
     records = []
     for chunk in chunks:
@@ -43,6 +47,7 @@ def build_chunk_records(
             "section_or_page": section_or_page,
             "source_url": source_url,
             "thumbnail_path": thumbnail_path,
+            "display_name": display_name or scheme_name,
             "text": chunk["text"],
         })
     return records

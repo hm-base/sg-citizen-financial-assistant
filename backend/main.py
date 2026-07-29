@@ -7,7 +7,12 @@ from pydantic import BaseModel
 import config
 from generation.gemini_client import GeminiClient
 from generation.grok_client import GrokClient
-from generation.pipeline import RagIndex, answer_general_question, answer_profile_question
+from generation.pipeline import (
+    RagIndex,
+    ShortlistFormatError,
+    answer_general_question,
+    answer_profile_question,
+)
 from ingestion.build_index import load_metadata
 from retrieval.bm25_index import build_bm25_index
 from retrieval.embed import load_embedder
@@ -79,6 +84,7 @@ class ProfileQueryRequest(BaseModel):
 @app.post("/api/query")
 def query(
     request: QueryRequest,
+    diagnostics: str | None = None,
     rag_index: RagIndex = Depends(get_rag_index),
     llm_client=Depends(get_llm_client),
 ):
@@ -90,25 +96,34 @@ def query(
         similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
         retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
         rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
+        diagnostics_full=diagnostics == "full",
     )
 
 
 @app.post("/api/profile-query")
 def profile_query(
     request: ProfileQueryRequest,
+    diagnostics: str | None = None,
     rag_index: RagIndex = Depends(get_rag_index),
     llm_client=Depends(get_llm_client),
 ):
-    return answer_profile_question(
-        request.profile,
-        rag_index,
-        llm_client,
-        free_text_question=request.free_text_question,
-        top_k=_override(request.top_k, config.TOP_K),
-        similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
-        retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
-        rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
-    )
+    try:
+        return answer_profile_question(
+            request.profile,
+            rag_index,
+            llm_client,
+            free_text_question=request.free_text_question,
+            top_k=_override(request.top_k, config.TOP_K),
+            similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
+            retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
+            rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
+            diagnostics_full=diagnostics == "full",
+        )
+    except ShortlistFormatError:
+        raise HTTPException(
+            status_code=502,
+            detail="The assistant returned an invalid response; please try again.",
+        )
 
 
 @app.get("/api/config")
