@@ -140,6 +140,7 @@ renderSampleQuestions(sampleTopicSelect.value);
 const topKInput = document.getElementById("control-top-k");
 const thresholdInput = document.getElementById("control-threshold");
 const modeSelect = document.getElementById("control-mode");
+const rewriteCheckbox = document.getElementById("control-rewrite");
 const providerIndicator = document.getElementById("provider-indicator");
 
 // Defaults live in config.py; these are only a last resort for when /api/config
@@ -158,6 +159,9 @@ async function initConfig() {
       thresholdInput.value = cfg.similarity_threshold;
     }
     if (cfg.retrieval_mode) modeSelect.value = cfg.retrieval_mode;
+    if (cfg.rewrite_query !== undefined && cfg.rewrite_query !== null) {
+      rewriteCheckbox.checked = cfg.rewrite_query;
+    }
     if (cfg.llm_provider) {
       providerIndicator.textContent = `LLM: ${cfg.llm_provider}`;
       providerIndicator.classList.remove("hidden");
@@ -179,6 +183,7 @@ function readControls() {
     top_k: parseInt(topKInput.value, 10),
     similarity_threshold: parseFloat(thresholdInput.value),
     retrieval_mode: modeSelect.value,
+    rewrite_query: rewriteCheckbox.checked,
   };
 }
 

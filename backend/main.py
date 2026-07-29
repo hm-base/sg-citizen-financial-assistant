@@ -64,6 +64,7 @@ class QueryRequest(BaseModel):
     top_k: int | None = None
     similarity_threshold: float | None = None
     retrieval_mode: str | None = None
+    rewrite_query: bool | None = None
 
 
 class ProfileQueryRequest(BaseModel):
@@ -72,6 +73,7 @@ class ProfileQueryRequest(BaseModel):
     top_k: int | None = None
     similarity_threshold: float | None = None
     retrieval_mode: str | None = None
+    rewrite_query: bool | None = None
 
 
 @app.post("/api/query")
@@ -87,6 +89,7 @@ def query(
         top_k=_override(request.top_k, config.TOP_K),
         similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
         retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
+        rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
     )
 
 
@@ -104,6 +107,7 @@ def profile_query(
         top_k=_override(request.top_k, config.TOP_K),
         similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
         retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
+        rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
     )
 
 
@@ -114,6 +118,7 @@ def get_config():
         "similarity_threshold": config.SIMILARITY_THRESHOLD,
         "retrieval_mode": config.RETRIEVAL_MODE,
         "llm_provider": config.LLM_PROVIDER,
+        "rewrite_query": config.ENABLE_QUERY_REWRITE,
     }
 
 

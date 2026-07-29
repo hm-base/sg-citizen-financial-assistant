@@ -108,6 +108,7 @@ def test_api_config_returns_defaults():
     assert "top_k" in body
     assert "similarity_threshold" in body
     assert "retrieval_mode" in body
+    assert "rewrite_query" in body
 
 
 def _fake_low_similarity_rag_index():
@@ -164,6 +165,33 @@ def test_explicit_zero_top_k_is_not_replaced_by_the_default():
     # top_k=0 retrieves nothing, so the pipeline must abstain rather than
     # silently fall back to config.TOP_K and answer.
     assert response.json()["abstained"] is True
+    app.dependency_overrides.clear()
+
+
+class QueuedLLMClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.prompts = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.responses.pop(0)
+
+
+def test_explicit_rewrite_query_flag_calls_the_llm_for_rewriting_first():
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    llm_client = QueuedLLMClient(["GST Voucher", "You may get up to $850 [GST Voucher, FAQ]."])
+    app.dependency_overrides[get_llm_client] = lambda: llm_client
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/query",
+        json={"question": "how much is that gst thing", "rewrite_query": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["abstained"] is False
+    assert len(llm_client.prompts) == 2
     app.dependency_overrides.clear()
 
 

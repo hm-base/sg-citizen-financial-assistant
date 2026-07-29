@@ -1,4 +1,9 @@
-from generation.prompts import build_general_qa_prompt, build_profile_prompt, extract_cited_scheme_labels
+from generation.prompts import (
+    build_general_qa_prompt,
+    build_profile_prompt,
+    build_query_rewrite_prompt,
+    extract_cited_scheme_labels,
+)
 
 SAMPLE_CHUNKS = [
     {
@@ -31,6 +36,13 @@ def test_build_profile_prompt_includes_profile_and_three_section_contract():
     assert "Possibly eligible" in prompt
     assert "Likely not eligible" in prompt
     assert "Not assessed" in prompt
+
+
+def test_build_query_rewrite_prompt_includes_the_question():
+    prompt = build_query_rewrite_prompt("how much is that gst thing ah")
+
+    assert "how much is that gst thing ah" in prompt
+    assert "search query" in prompt.lower()
 
 
 def test_extract_cited_scheme_labels_parses_bracketed_citations():

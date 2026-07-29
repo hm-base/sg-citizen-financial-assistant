@@ -5,6 +5,7 @@ import numpy as np
 from generation.pipeline import (
     RagIndex,
     _retrieve,
+    _rewrite_query,
     answer_general_question,
     answer_profile_question,
 )
@@ -32,6 +33,18 @@ class FakeLLMClient:
     def generate(self, prompt: str) -> str:
         self.last_prompt = prompt
         return self.response
+
+
+class QueuedLLMClient:
+    """Returns one queued response per call, in order (e.g. rewrite then answer)."""
+
+    def __init__(self, responses: list[str]):
+        self.responses = list(responses)
+        self.prompts = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.responses.pop(0)
 
 
 def _build_rag_index():
@@ -126,6 +139,59 @@ def test_answer_general_question_hybrid_mode_does_not_abstain_on_relevant_query(
 
     assert result["abstained"] is False
     assert result["answer"] == "You may get up to $850 [GST Voucher, FAQ]."
+
+
+def test_rewrite_query_uses_llm_output():
+    llm_client = QueuedLLMClient(["gst voucher amount"])
+
+    rewritten = _rewrite_query("how much is that gst thing ah", llm_client)
+
+    assert rewritten == "gst voucher amount"
+    assert "how much is that gst thing ah" in llm_client.prompts[0]
+
+
+def test_rewrite_query_falls_back_to_original_when_llm_returns_blank():
+    llm_client = QueuedLLMClient(["   "])
+
+    assert _rewrite_query("original question", llm_client) == "original question"
+
+
+def test_answer_general_question_rewrites_query_before_retrieval_when_enabled():
+    """The unrewritten question doesn't match any known embedding (FakeEmbedder
+    falls back to the zero vector), so retrieval only succeeds because the
+    rewrite step maps it to "gst voucher amount" first."""
+    rag_index = _build_rag_index()
+    llm_client = QueuedLLMClient(["gst voucher amount", "You may get up to $850 [GST Voucher, FAQ]."])
+
+    result = answer_general_question(
+        "how much is that gst thing ah",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+        rewrite_query=True,
+    )
+
+    assert result["abstained"] is False
+    assert result["answer"] == "You may get up to $850 [GST Voucher, FAQ]."
+
+
+def test_answer_general_question_does_not_rewrite_by_default():
+    rag_index = _build_rag_index()
+    llm_client = QueuedLLMClient(["should never be used"])
+
+    result = answer_general_question(
+        "how much is that gst thing ah",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert result["abstained"] is True
+    assert llm_client.prompts == []
 
 
 class ThreeChunkEmbedder:

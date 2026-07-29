@@ -379,6 +379,17 @@ textarea:focus, select:focus, input:focus {
   background: var(--color-primary-active);
 }
 
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400 !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
 .advanced-panel {
   margin-top: 1.25rem;
   border-top: 1px dashed var(--color-border);

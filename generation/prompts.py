@@ -62,6 +62,17 @@ def build_profile_prompt(profile: dict, retrieved: list[dict], free_text_questio
     )
 
 
+QUERY_REWRITE_RULES = """Rewrite the user's question into a short search query for retrieving \
+passages from official Singapore government scheme documents (ComCare, ElderFund, GST Voucher, \
+CDC Vouchers, CHAS, Silver Support, Workfare, HDB grants, MediSave/MediShield, CPF schemes, and \
+similar). Expand abbreviations and colloquial phrasing into the terms an official fact sheet would \
+use. Return ONLY the rewritten query on a single line, with no preamble, quotes, or explanation."""
+
+
+def build_query_rewrite_prompt(question: str) -> str:
+    return f"{QUERY_REWRITE_RULES}\n\nQuestion: {question}\nRewritten query:"
+
+
 def extract_cited_scheme_labels(answer: str) -> list[tuple[str, str]]:
     labels = []
     for bracket_content in re.findall(r"\[([^\[\]]+)\]", answer):

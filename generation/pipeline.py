@@ -2,7 +2,12 @@ import logging
 from dataclasses import dataclass
 
 from config import FALLBACK_MESSAGE
-from generation.prompts import build_general_qa_prompt, build_profile_prompt, extract_cited_scheme_labels
+from generation.prompts import (
+    build_general_qa_prompt,
+    build_profile_prompt,
+    build_query_rewrite_prompt,
+    extract_cited_scheme_labels,
+)
 from retrieval.bm25_index import search_bm25_index
 from retrieval.embed import embed_texts
 from retrieval.faiss_index import search_faiss_index
@@ -75,6 +80,17 @@ def _retrieve(
     return fused, gate_score
 
 
+def _rewrite_query(question: str, llm_client) -> str:
+    """Rewrite a question into retrieval-friendly search terms.
+
+    Used only to pick which chunks to retrieve; the original question is
+    still what gets answered and cited, so a bad rewrite can only hurt
+    recall, never make the answer address the wrong question.
+    """
+    rewritten = llm_client.generate(build_query_rewrite_prompt(question)).strip()
+    return rewritten or question
+
+
 def _abstain_result() -> dict:
     return {"answer": FALLBACK_MESSAGE, "sources": [], "abstained": True, "citation_warning": None}
 
@@ -111,8 +127,10 @@ def answer_general_question(
     top_k: int,
     similarity_threshold: float,
     retrieval_mode: str,
+    rewrite_query: bool = False,
 ) -> dict:
-    results, gate_score = _retrieve(question, rag_index, top_k, retrieval_mode)
+    search_query = _rewrite_query(question, llm_client) if rewrite_query else question
+    results, gate_score = _retrieve(search_query, rag_index, top_k, retrieval_mode)
     if not results or gate_score < similarity_threshold:
         return _abstain_result()
 
@@ -130,12 +148,14 @@ def answer_profile_question(
     top_k: int,
     similarity_threshold: float,
     retrieval_mode: str,
+    rewrite_query: bool = False,
 ) -> dict:
     query = free_text_question or (
         f"Singapore subsidy eligibility and payout amounts for profile: {profile}"
     )
+    search_query = _rewrite_query(query, llm_client) if rewrite_query else query
     candidate_pool_size = max(top_k * 3, 15)
-    candidates, gate_score = _retrieve(query, rag_index, candidate_pool_size, retrieval_mode)
+    candidates, gate_score = _retrieve(search_query, rag_index, candidate_pool_size, retrieval_mode)
     if not candidates or gate_score < similarity_threshold:
         return _abstain_result()
 
