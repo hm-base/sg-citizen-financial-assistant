@@ -68,6 +68,58 @@ def test_build_chunk_records_keeps_an_explicit_display_name():
     )
 
 
+def test_build_chunk_records_attaches_citation_fields_when_doc_metadata_given():
+    chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Some text."}]
+
+    records = build_chunk_records(
+        chunks,
+        doc_id="cpf_wis_scheme_page",
+        scheme_name="Workfare Income Supplement",
+        category="Lower-income/employment",
+        modality="text",
+        source_file="data/raw/text/wis/cpf_wis_scheme_page.md",
+        section_or_page="p.1",
+        doc_metadata={
+            "agency": "CPF",
+            "tier": "A",
+            "authority_rank": 1,
+            "effective_date": "2025-01-01",
+            "citation": "CPF — Workfare Income Supplement (eff. 2025-01-01), retrieved 2026-07-29",
+            "doc_type": "scheme_page",
+            "is_current": True,
+            "canonical_url": "https://www.cpf.gov.sg/wis",
+        },
+    )
+
+    record = records[0]
+    assert record["agency"] == "CPF"
+    assert record["tier"] == "A"
+    assert record["authority_rank"] == 1
+    assert record["effective_date"] == "2025-01-01"
+    assert record["citation"] == "CPF — Workfare Income Supplement (eff. 2025-01-01), retrieved 2026-07-29"
+    assert record["doc_type"] == "scheme_page"
+    assert record["is_current"] is True
+    assert record["canonical_url"] == "https://www.cpf.gov.sg/wis"
+
+
+def test_build_chunk_records_omits_citation_fields_when_no_doc_metadata():
+    chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Some text."}]
+
+    records = build_chunk_records(
+        chunks,
+        doc_id="unmatched-doc",
+        scheme_name="Unmatched Scheme",
+        category="Uncategorized",
+        modality="text",
+        source_file="data/raw/text/unmatched.pdf",
+        section_or_page="p.1",
+    )
+
+    record = records[0]
+    for field in ("agency", "tier", "authority_rank", "effective_date", "citation", "doc_type"):
+        assert field not in record
+
+
 def test_build_chunk_records_image_modality_keeps_thumbnail():
     chunks = [{"chunk_index": 0, "word_start": 0, "word_end": 4, "text": "Payout tiers table."}]
 

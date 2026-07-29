@@ -21,7 +21,6 @@
       </div>
     </div>
     <div class="header-actions" data-noprint>
-      <span id="provider-indicator" class="provider-indicator hidden"></span>
       <button id="advanced-toggle-button" class="advanced-toggle-btn" type="button" aria-expanded="false">Advanced</button>
       <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Switch colour theme">Warm earth theme</button>
     </div>
@@ -30,56 +29,6 @@
   <div class="mode-toggle" role="tablist" aria-label="Assistant mode" data-noprint>
     <button class="mode-btn active" data-mode="general" role="tab" aria-selected="true">General Q&amp;A</button>
     <button class="mode-btn" data-mode="profile" role="tab" aria-selected="false">Personal eligibility shortlist</button>
-  </div>
-
-  <div id="advanced-band" class="advanced-band hidden" data-noprint>
-    <div class="advanced-band-inner">
-      <div class="advanced-band-header">
-        <span class="advanced-band-label">Advanced &middot; retrieval</span>
-        <span class="advanced-band-note">Team demo controls. Not shown to residents.</span>
-      </div>
-      <div class="advanced-controls-row">
-        <label>Top K <input id="control-top-k" type="number" min="1" max="20" /></label>
-        <label>Similarity threshold <input id="control-threshold" type="number" step="0.05" min="0" max="1" /></label>
-        <label>Retrieval mode
-          <select id="control-mode">
-            <option value="dense">Dense (baseline)</option>
-            <option value="hybrid">Hybrid (improved)</option>
-          </select>
-        </label>
-        <label class="checkbox-label">
-          <input id="control-rewrite" type="checkbox" />
-          Rewrite before retrieval
-        </label>
-        <label class="checkbox-label">
-          <input id="control-diagnostics-full" type="checkbox" />
-          Show retrieval gain (doubles retrieval cost)
-        </label>
-      </div>
-
-      <div class="dev-only-note">Developer diagnostics below are never shown to residents.</div>
-
-      <div id="diagnostics-panel" class="diagnostics-panel hidden">
-        <div class="diag-row">
-          <span class="diag-row-label">as typed</span>
-          <span id="diag-raw-query" class="diag-query"></span>
-        </div>
-        <div class="diag-row">
-          <span class="diag-row-label">rewritten</span>
-          <span id="diag-rewritten-query" class="diag-query diag-query-rewritten"></span>
-        </div>
-        <div id="diag-subqueries" class="diag-subqueries"></div>
-        <div id="diag-ops" class="diag-ops"></div>
-        <div id="diag-gain" class="diag-gain"></div>
-        <table class="diag-chunks-table">
-          <thead><tr><th>chunk_id</th><th>score</th></tr></thead>
-          <tbody id="diag-chunks-body"></tbody>
-        </table>
-        <div id="diag-dropped" class="diag-dropped"></div>
-      </div>
-
-      <div id="citation-warning-banner" class="citation-warning hidden" role="alert"></div>
-    </div>
   </div>
 
   <main class="layout">
@@ -175,7 +124,14 @@
             <span class="answer-kicker-label">Answer</span>
             <span id="answer-meta" class="answer-meta-mono"></span>
           </div>
+          <div id="answer-supersession-warning" class="citation-warning hidden">
+            <span class="citation-warning-dot"></span>
+            <div id="answer-supersession-detail"></div>
+          </div>
           <div id="answer-text" class="answer-text" aria-live="polite"></div>
+          <div id="answer-citation-note" class="answer-citation-note hidden"></div>
+          <div id="answer-tier-note" class="answer-citation-note hidden"></div>
+          <div id="answer-asof-line" class="answer-asof-line hidden"></div>
           <div class="info-callout">
             <span class="info-callout-dot"></span>
             <span>This summarises published documents, not tax advice.</span>
@@ -197,6 +153,75 @@
       <div id="shortlist-view" class="hidden" aria-live="polite"></div>
     </section>
   </main>
+
+  <div id="advanced-band" class="advanced-band hidden" data-noprint>
+    <div class="advanced-band-inner">
+      <div class="advanced-band-header">
+        <span class="section-eyebrow">Advanced &middot; retrieval</span>
+        <span class="advanced-band-note">Team demo controls. Not shown to residents.</span>
+      </div>
+      <div class="advanced-controls-row">
+        <label class="slider-field">
+          Top K
+          <span class="slider-row">
+            <input id="control-top-k" type="range" min="1" max="20" step="1" />
+            <span id="control-top-k-readout" class="slider-readout">k=5</span>
+          </span>
+        </label>
+        <label class="slider-field">
+          Similarity threshold
+          <span class="slider-row">
+            <input id="control-threshold" type="range" min="0" max="1" step="0.05" />
+            <span id="control-threshold-readout" class="slider-readout">sim&ge;0.35</span>
+          </span>
+        </label>
+        <label>Retrieval mode
+          <select id="control-mode">
+            <option value="dense">Dense (baseline)</option>
+            <option value="hybrid">Hybrid (improved)</option>
+          </select>
+        </label>
+        <label class="checkbox-label">
+          <input id="control-rewrite" type="checkbox" />
+          Rewrite before retrieval
+        </label>
+        <label class="checkbox-label">
+          <input id="control-diagnostics-full" type="checkbox" />
+          Show retrieval gain (doubles retrieval cost)
+        </label>
+        <span id="provider-indicator" class="provider-indicator hidden"></span>
+      </div>
+
+      <div class="dev-only-note">Developer diagnostics below are never shown to residents.</div>
+
+      <div id="citation-warning-banner" class="citation-warning hidden" role="alert">
+        <span class="citation-warning-dot"></span>
+        <div>
+          <strong>Unverified citations in this answer</strong>
+          <div id="citation-warning-detail" class="citation-warning-detail"></div>
+        </div>
+      </div>
+
+      <div id="diagnostics-panel" class="diagnostics-panel hidden">
+        <div class="diag-row">
+          <span class="diag-row-label">as typed</span>
+          <span id="diag-raw-query" class="diag-query"></span>
+        </div>
+        <div class="diag-row">
+          <span class="diag-row-label">rewritten</span>
+          <span id="diag-rewritten-query" class="diag-query diag-query-rewritten"></span>
+        </div>
+        <div id="diag-subqueries" class="diag-subqueries"></div>
+        <div id="diag-ops" class="diag-ops"></div>
+        <div id="diag-gain" class="diag-gain"></div>
+        <table class="diag-chunks-table">
+          <thead><tr><th>Chunk</th><th>Score</th><th>Rank &Delta;</th><th>State</th></tr></thead>
+          <tbody id="diag-chunks-body"></tbody>
+        </table>
+        <div id="diag-dropped" class="diag-dropped"></div>
+      </div>
+    </div>
+  </div>
 
   <div id="source-drawer" class="source-drawer hidden">
     <div class="source-drawer-header">

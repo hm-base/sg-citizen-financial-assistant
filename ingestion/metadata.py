@@ -1,3 +1,24 @@
+#: Optional citation-contract fields sourced from data/metadata/*.json
+#: (chroma_flat_metadata_template). Every field here is optional at the
+#: frontend/template level and degrades gracefully when absent -- most of
+#: this corpus's documents don't have a matching metadata entry yet (see
+#: ingestion.build_index.load_doc_metadata_index's docstring).
+_OPTIONAL_CITATION_FIELDS = (
+    "agency",
+    "tier",
+    "authority_rank",
+    "effective_date",
+    "last_updated",
+    "citation",
+    "doc_type",
+    "is_current",
+    "superseded",
+    "supersedes_doc_id",
+    "licence_note",
+    "canonical_url",
+)
+
+
 def build_chunk_records(
     chunks: list[dict],
     *,
@@ -10,6 +31,7 @@ def build_chunk_records(
     source_url: str = "",
     thumbnail_path: str = "",
     display_name: str | None = None,
+    doc_metadata: dict | None = None,
 ) -> list[dict]:
     """
     Attach document-level metadata to chunk dicts from chunker.
@@ -28,12 +50,23 @@ def build_chunk_records(
         display_name: Human-friendly document title for UI citation chips
                       (e.g. "ComCare SMTA — SupportGoWhere"); falls back to
                       scheme_name when not given.
+        doc_metadata: Optional flat dict (from ingestion.build_index.
+                      load_doc_metadata_index) carrying the citation-contract
+                      fields in _OPTIONAL_CITATION_FIELDS. Only keys present
+                      there are copied onto each record -- a missing field
+                      is simply absent, not set to None/"".
 
     Returns:
         List of dicts, each with keys:
         chunk_id, doc_id, scheme_name, category, modality, source_file,
-        section_or_page, source_url, thumbnail_path, display_name, text
+        section_or_page, source_url, thumbnail_path, display_name, text,
+        plus any of _OPTIONAL_CITATION_FIELDS present in doc_metadata.
     """
+    doc_metadata = doc_metadata or {}
+    citation_fields = {
+        field: doc_metadata[field] for field in _OPTIONAL_CITATION_FIELDS if field in doc_metadata
+    }
+
     records = []
     for chunk in chunks:
         chunk_id = f"{doc_id}_{modality}_{chunk['chunk_index']:03d}"
@@ -49,5 +82,6 @@ def build_chunk_records(
             "thumbnail_path": thumbnail_path,
             "display_name": display_name or scheme_name,
             "text": chunk["text"],
+            **citation_fields,
         })
     return records

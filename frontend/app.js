@@ -48,11 +48,19 @@ modeButtons.forEach((button) => {
 
 const advancedToggleButton = document.getElementById("advanced-toggle-button");
 const advancedBand = document.getElementById("advanced-band");
+const ADVANCED_OPEN_STORAGE_KEY = "sg-financial-assistant-advanced-open";
+
+// Always closed on load -- a demo reload must return to the resident view,
+// never resume showing top_k/chunk_id/raw diagnostics. sessionStorage still
+// records the in-session toggle state (not localStorage, so it never
+// survives past this browser tab), but that stored value is deliberately
+// never read back to auto-open the panel at startup.
+sessionStorage.setItem(ADVANCED_OPEN_STORAGE_KEY, "false");
 
 advancedToggleButton.addEventListener("click", () => {
   const isOpen = advancedBand.classList.toggle("hidden") === false;
   advancedToggleButton.setAttribute("aria-expanded", String(isOpen));
-  advancedToggleButton.classList.toggle("active", isOpen);
+  sessionStorage.setItem(ADVANCED_OPEN_STORAGE_KEY, String(isOpen));
 });
 
 // Curated per-topic FAQ starters for the demo. Purely a UI convenience — each
@@ -153,10 +161,21 @@ renderSampleQuestions(sampleTopicSelect.value);
 
 const topKInput = document.getElementById("control-top-k");
 const thresholdInput = document.getElementById("control-threshold");
+const topKReadout = document.getElementById("control-top-k-readout");
+const thresholdReadout = document.getElementById("control-threshold-readout");
 const modeSelect = document.getElementById("control-mode");
 const rewriteCheckbox = document.getElementById("control-rewrite");
 const diagnosticsFullCheckbox = document.getElementById("control-diagnostics-full");
 const providerIndicator = document.getElementById("provider-indicator");
+
+function updateTopKReadout() {
+  topKReadout.textContent = `k=${topKInput.value}`;
+}
+function updateThresholdReadout() {
+  thresholdReadout.textContent = `sim≥${parseFloat(thresholdInput.value).toFixed(2)}`;
+}
+topKInput.addEventListener("input", updateTopKReadout);
+thresholdInput.addEventListener("input", updateThresholdReadout);
 
 // Defaults live in config.py; these are only a last resort for when /api/config
 // is unreachable, so the Advanced panel still shows usable numbers instead of
@@ -189,6 +208,8 @@ async function initConfig() {
     providerIndicator.textContent = "LLM: unavailable";
     providerIndicator.classList.remove("hidden");
   }
+  updateTopKReadout();
+  updateThresholdReadout();
 }
 
 initConfig();
@@ -203,16 +224,18 @@ function readControls() {
 }
 
 // Developer-only affordance: rendered inside the Advanced panel, never in the
-// resident-facing answer view. Residents never see raw/unverified citations --
-// generation.pipeline already drops those from what they're shown.
+// resident-facing answer view. Residents never see the word "unverified" --
+// renderResidentCitationNote (below) is what tells them, in plain language,
+// that a claim was dropped.
 function renderDevWarnings(messages) {
   const banner = document.getElementById("citation-warning-banner");
+  const detail = document.getElementById("citation-warning-detail");
   if (!messages.length) {
-    banner.textContent = "";
+    detail.textContent = "";
     banner.classList.add("hidden");
     return;
   }
-  banner.textContent = `Developer diagnostics: ${messages.join(" | ")}`;
+  detail.textContent = messages.join(" | ");
   banner.classList.remove("hidden");
 }
 
@@ -221,6 +244,25 @@ function renderCitationWarning(result) {
   renderDevWarnings(
     warnings.map((pair) => (Array.isArray(pair) ? `unverified citation [${pair.join(", ")}]` : String(pair)))
   );
+  renderResidentCitationNote(warnings.length);
+}
+
+// The resident-facing counterpart to renderDevWarnings: states the same fact
+// in plain language, with no jargon ("unverified", "citation") -- a resident
+// must never see a scary technical banner attached to an answer they were
+// just given.
+function renderResidentCitationNote(droppedCount) {
+  const note = document.getElementById("answer-citation-note");
+  if (!droppedCount) {
+    note.classList.add("hidden");
+    note.textContent = "";
+    return;
+  }
+  note.textContent =
+    droppedCount === 1
+      ? "One statement below could not be matched to a document, and has been removed."
+      : `${droppedCount} statements below could not be matched to a document, and have been removed.`;
+  note.classList.remove("hidden");
 }
 
 // Developer-only diagnostics panel (rewrite trace + retrieved chunks + gain).
@@ -268,6 +310,12 @@ function renderDiagnostics(diagnostics) {
   const chunksBody = document.getElementById("diag-chunks-body");
   chunksBody.innerHTML = "";
   const retrieval = diagnostics.retrieval || {};
+  const threshold = typeof retrieval.threshold === "number" ? retrieval.threshold : null;
+  // Sorted by score descending is the fused rank order the backend already
+  // returned; rank Δ vs a separate baseline ordering isn't computed by the
+  // backend today, so this column reads "· 0" for every row rather than
+  // fabricate a delta -- a real per-chunk rank-change diagnostic would need
+  // a retrieval/pipeline change outside this view-layer pass.
   (retrieval.chunks || []).forEach((chunk) => {
     const row = document.createElement("tr");
     const idCell = document.createElement("td");
@@ -276,6 +324,17 @@ function renderDiagnostics(diagnostics) {
     const scoreCell = document.createElement("td");
     scoreCell.textContent = typeof chunk.score === "number" ? chunk.score.toFixed(3) : "";
     row.appendChild(scoreCell);
+    const deltaCell = document.createElement("td");
+    deltaCell.textContent = "· 0";
+    row.appendChild(deltaCell);
+    const stateCell = document.createElement("td");
+    stateCell.textContent =
+      threshold === null
+        ? ""
+        : typeof chunk.score === "number" && chunk.score >= threshold
+          ? "above threshold"
+          : "below threshold";
+    row.appendChild(stateCell);
     chunksBody.appendChild(row);
   });
 
@@ -291,25 +350,60 @@ function thumbnailUrl(thumbnailPath) {
   return index === -1 ? normalized : `/media/${normalized.slice(index + marker.length)}`;
 }
 
-// Caps a source excerpt to ~2-3 sentences / ~300 chars so the Sources panel
-// never dumps a whole OCR'd page. The full chunk text is preserved
-// separately on the record and only ever shown in the source-passage drawer.
-// Scraped SupportGoWhere pages repeat the same nav/footer boilerplate on
-// every chunk ("Read this in: English | ... Share link", the "Scheme last
-// updated" footer). Stripping it before capping means the excerpt starts on
-// the actual scheme text instead of language-picker chrome.
+// Caps a source excerpt to ~240 chars at a sentence boundary so the Sources
+// panel never dumps a whole OCR'd/scraped page. The full chunk text is
+// preserved separately on the record and only ever shown in the
+// source-passage drawer.
+//
+// Scraped gov.sg pages repeat the same nav/footer/legal boilerplate on every
+// chunk -- language switchers, breadcrumb chains, scam warnings, cookie
+// banners, share/print links. Printing that instead of the actual passage
+// ("Support Resources & Tools Read this in: English | 中文 | Melayu |
+// தமிழ்...") is worse than a layout bug: it tells the reader the system
+// doesn't understand its own documents. Every pattern here was matched
+// against real text actually seen in this corpus's PDFs.
 const BOILERPLATE_PATTERNS = [
   /^Support\s+Resources\s*&\s*Tools\s+Read this in:.*?Share link\s*/i,
   /Scheme last updated.*$/is,
+  // Language-switcher runs anywhere in the text: 2+ "|"-separated segments,
+  // each at most 3 words (catches "English | 中文 | Melayu | தமிழ்" and
+  // similar even mid-excerpt, not just at the very start).
+  /(?:\S+(?:\s+\S+){0,2}\s*\|\s*){2,}\S+(?:\s+\S+){0,2}/g,
+  // Breadcrumb chains: 2+ "word/phrase >" segments, e.g.
+  // "Early Childhood Development Agency (ECDA)> Parents> Preschool Subsidies >".
+  /\b[\w][\w()&/,.'-]*(?:\s+[\w()&/,.'-]+){0,4}\s*>\s*(?:[\w][\w()&/,.'-]*(?:\s+[\w()&/,.'-]+){0,4}\s*>\s*){1,}/g,
+  /A Singapore Government Agency Website\.?\s*(Beware of government impersonation scams\.?)?/gi,
+  /How to identify\s*/gi,
+  /Scam Advisory\s*/gi,
+  /AIC staff will NEVER ask you to transfer money or disclose bank log-in details[^.]*\./gi,
+  /We are aware of incorrect information[^.]*\.\s*Always verify details on our website first\.\s*If in\s*doubt, contact AIC directly\.?/gi,
+  /This site uses cookies\.[^.]*\.\s*(For more information, view our privacy policy\.)?/gi,
+  /Chat with Us\s*/gi,
+  /Submit (an enquiry|your enquiry)\s*/gi,
+  /About Us\s+Contact Us\/Feedback\s+Report Vulnerability\s+Privacy Statement\s+Terms of Use\s*/gi,
+  /©\d{4},?\s*Government of Singapore\.[^.]*\.?/gi,
+  /Did you find your answer\?\s*(No\s+Yes)?/gi,
+  /https?:\/\/\S+/g,
 ];
 
-function capExcerpt(text, maxChars = 300) {
-  if (!text) return "";
-  let cleaned = text;
+function cleanExcerptText(text, displayName) {
+  let cleaned = text || "";
   BOILERPLATE_PATTERNS.forEach((pattern) => {
     cleaned = cleaned.replace(pattern, " ");
   });
-  const trimmed = cleaned.trim().replace(/\s+/g, " ");
+  cleaned = cleaned.trim().replace(/\s+/g, " ");
+  // A cleaned excerpt that opens by repeating the row's own title heading
+  // adds nothing -- the title is already shown as the row heading.
+  if (displayName) {
+    const escaped = displayName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    cleaned = cleaned.replace(new RegExp(`^${escaped}\\s*`, "i"), "").trim();
+  }
+  return cleaned;
+}
+
+function capExcerpt(text, displayName, maxChars = 240) {
+  const trimmed = cleanExcerptText(text, displayName);
+  if (!trimmed) return "";
   if (trimmed.length <= maxChars) return trimmed;
   const sliced = trimmed.slice(0, maxChars);
   const lastEnd = Math.max(sliced.lastIndexOf(". "), sliced.lastIndexOf("? "), sliced.lastIndexOf("! "));
@@ -368,9 +462,32 @@ const sourcesCard = document.getElementById("sources-card");
 const sourcesExpandBtn = document.getElementById("sources-expand-btn");
 const SOURCES_COLLAPSED_COUNT = 3;
 
-function renderSourceEntry(doc, list) {
+const MODALITY_TILE_LABEL = { image: "FIGURE", video: "VIDEO ▸" };
+const DOC_TYPE_LABEL = {
+  scheme_page: "Scheme page",
+  pdf: "PDF",
+  video: "Video",
+  infographic: "Infographic",
+};
+// Authority ranking (3e): highest authority first, similarity as tiebreak.
+// A document with no authority_rank sorts after every ranked one, rather
+// than defaulting to 0 and outranking real tier-A sources.
+function docAuthorityRank(doc) {
+  const ranks = doc.passages
+    .map(({ source }) => source.authority_rank)
+    .filter((rank) => typeof rank === "number");
+  return ranks.length ? Math.min(...ranks) : Number.POSITIVE_INFINITY;
+}
+function docBestScore(doc) {
+  const scores = doc.passages.map(({ source }) => source.score).filter((s) => typeof s === "number");
+  return scores.length ? Math.max(...scores) : -Infinity;
+}
+
+function renderSourceEntry(doc, list, showScore) {
   const item = document.createElement("li");
   item.className = "source-entry";
+
+  item.id = `source-row-${doc.number}`;
 
   const indexDiv = document.createElement("div");
   indexDiv.className = "source-index";
@@ -380,10 +497,20 @@ function renderSourceEntry(doc, list) {
   const body = document.createElement("div");
   body.className = "source-body";
 
-  const title = document.createElement("div");
+  const primary = doc.passages[0].source;
+  const titleLine = document.createElement("div");
+  titleLine.className = "source-title-line";
+  if (primary.agency) {
+    const agencyEl = document.createElement("span");
+    agencyEl.className = "source-agency";
+    agencyEl.textContent = primary.agency;
+    titleLine.appendChild(agencyEl);
+  }
+  const title = document.createElement("span");
   title.className = "source-title";
   title.textContent = doc.docLabel;
-  body.appendChild(title);
+  titleLine.appendChild(title);
+  body.appendChild(titleLine);
 
   doc.passages.forEach(({ source }) => {
     const passageDiv = document.createElement("div");
@@ -391,14 +518,35 @@ function renderSourceEntry(doc, list) {
 
     const refLine = document.createElement("div");
     refLine.className = "source-ref";
-    const score = typeof source.score === "number" ? source.score.toFixed(2) : null;
-    refLine.textContent = score ? `${source.section_or_page} · sim ${score}` : source.section_or_page;
+    const score = showScore && typeof source.score === "number" ? source.score.toFixed(2) : null;
+    refLine.textContent = score
+      ? `${doc.docLabel} · ${source.section_or_page} · sim ${score}`
+      : `${doc.docLabel} · ${source.section_or_page}`;
     passageDiv.appendChild(refLine);
 
+    // Provenance run: doc_type · Tier {tier} · eff. {date} · retrieved {date},
+    // omitting any piece the metadata doesn't have (3c line 3).
+    const provenanceParts = [];
+    if (source.doc_type) provenanceParts.push(DOC_TYPE_LABEL[source.doc_type] || source.doc_type);
+    if (source.tier) provenanceParts.push(`Tier ${source.tier}`);
+    if (source.effective_date) provenanceParts.push(`eff. ${source.effective_date}`);
+    if (source.last_updated) provenanceParts.push(`retrieved ${source.last_updated}`);
+    if (provenanceParts.length) {
+      const provenanceLine = document.createElement("div");
+      provenanceLine.className = "source-provenance";
+      provenanceLine.textContent = provenanceParts.join(" · ");
+      passageDiv.appendChild(provenanceLine);
+    }
+
+    const excerptText = capExcerpt(source.text, doc.docLabel);
     const excerptDiv = document.createElement("div");
     excerptDiv.className = "source-excerpt";
-    excerptDiv.textContent = capExcerpt(source.text);
+    excerptDiv.textContent = excerptText || "No quotable passage — open the source document";
+    if (!excerptText) excerptDiv.classList.add("source-excerpt-empty");
     passageDiv.appendChild(excerptDiv);
+
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "source-actions-row";
 
     const showBtn = document.createElement("button");
     showBtn.type = "button";
@@ -413,46 +561,106 @@ function renderSourceEntry(doc, list) {
         text: source.text,
       })
     );
-    passageDiv.appendChild(showBtn);
+    actionsRow.appendChild(showBtn);
 
+    const originalUrl = source.canonical_url || source.source_url;
+    if (originalUrl) {
+      const originalLink = document.createElement("a");
+      originalLink.className = "source-show-btn";
+      originalLink.href = originalUrl;
+      originalLink.target = "_blank";
+      originalLink.rel = "noopener";
+      originalLink.textContent = "View original";
+      actionsRow.appendChild(originalLink);
+    }
+
+    passageDiv.appendChild(actionsRow);
     body.appendChild(passageDiv);
   });
 
   item.appendChild(body);
 
-  const firstThumbnail = doc.passages.find((p) => p.source.thumbnail_path);
+  const firstThumbnail = doc.passages.find(
+    (p) => p.source.thumbnail_path || p.source.modality === "video" || p.source.doc_type === "infographic"
+  );
   if (firstThumbnail) {
-    const thumbWrap = document.createElement("div");
-    thumbWrap.className = "source-thumb";
-    const image = document.createElement("img");
-    image.src = thumbnailUrl(firstThumbnail.source.thumbnail_path);
-    image.alt = `Thumbnail for ${doc.docLabel}`;
-    image.loading = "lazy";
-    thumbWrap.appendChild(image);
-    item.appendChild(thumbWrap);
+    const source = firstThumbnail.source;
+    if (source.thumbnail_path && source.modality === "image") {
+      const thumbWrap = document.createElement("div");
+      thumbWrap.className = "source-thumb";
+      const image = document.createElement("img");
+      image.src = thumbnailUrl(source.thumbnail_path);
+      image.alt = `Thumbnail for ${doc.docLabel}`;
+      image.loading = "lazy";
+      thumbWrap.appendChild(image);
+      item.appendChild(thumbWrap);
+    } else {
+      const tileLabel = MODALITY_TILE_LABEL[source.modality] || (source.doc_type === "infographic" ? "FIGURE" : null);
+      if (tileLabel) {
+        const tile = document.createElement("div");
+        tile.className = "source-thumb source-thumb-placeholder";
+        const label = document.createElement("span");
+        label.className = "source-thumb-label";
+        label.textContent = tileLabel;
+        tile.appendChild(label);
+        const sub = document.createElement("span");
+        sub.className = "source-thumb-sub";
+        sub.textContent = source.section_or_page || "";
+        tile.appendChild(sub);
+        item.appendChild(tile);
+      }
+    }
   }
 
   list.appendChild(item);
 }
 
-function renderSources(docs) {
+// Sorts docs by authority (highest first, similarity as tiebreak) and
+// reassigns doc.number to match (3e). Must run exactly once, before either
+// the answer text's "[n]" markers or the Sources list are rendered -- both
+// read doc.number, and they must agree.
+function sortAndNumberDocs(docs) {
+  docs.sort((a, b) => {
+    const rankDelta = docAuthorityRank(a) - docAuthorityRank(b);
+    return rankDelta !== 0 ? rankDelta : docBestScore(b) - docBestScore(a);
+  });
+  docs.forEach((doc, index) => {
+    doc.number = index + 1;
+  });
+  return docs;
+}
+
+function renderSources(docs, showScore) {
   const list = document.getElementById("sources-list");
   list.innerHTML = "";
   sourcesCard.classList.toggle("hidden", docs.length === 0);
   if (!docs.length) return;
 
-  const collapsed = docs.length > SOURCES_COLLAPSED_COUNT;
-  const visible = collapsed ? docs.slice(0, SOURCES_COLLAPSED_COUNT) : docs;
-  visible.forEach((doc) => renderSourceEntry(doc, list));
+  const ordered = docs;
+  const collapsed = ordered.length > SOURCES_COLLAPSED_COUNT;
+  const visible = collapsed ? ordered.slice(0, SOURCES_COLLAPSED_COUNT) : ordered;
+  visible.forEach((doc) => renderSourceEntry(doc, list, showScore));
+
+  const licenceNotes = [
+    ...new Set(docs.map((doc) => doc.passages[0].source.licence_note).filter(Boolean)),
+  ];
+  const existingLicenceLine = sourcesCard.querySelector(".source-licence-note");
+  if (existingLicenceLine) existingLicenceLine.remove();
+  if (licenceNotes.length) {
+    const licenceLine = document.createElement("div");
+    licenceLine.className = "source-licence-note";
+    licenceLine.textContent = licenceNotes.join(" "); // one line, deduplicated across rows, not per row
+    sourcesCard.appendChild(licenceLine);
+  }
 
   if (!collapsed) {
     sourcesExpandBtn.classList.add("hidden");
     return;
   }
   sourcesExpandBtn.classList.remove("hidden");
-  sourcesExpandBtn.textContent = `Show all ${docs.length} sources`;
+  sourcesExpandBtn.textContent = `Show all ${ordered.length} sources`;
   sourcesExpandBtn.onclick = () => {
-    docs.slice(SOURCES_COLLAPSED_COUNT).forEach((doc) => renderSourceEntry(doc, list));
+    ordered.slice(SOURCES_COLLAPSED_COUNT).forEach((doc) => renderSourceEntry(doc, list, showScore));
     sourcesExpandBtn.classList.add("hidden");
   };
 }
@@ -469,7 +677,12 @@ function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
   let cursor = 0;
   spans.forEach((span) => {
     if (span.start > cursor) {
-      container.appendChild(document.createTextNode(answer.slice(cursor, span.start)));
+      // Markers sit flush after punctuation, no preceding space -- trims
+      // trailing whitespace off the text run immediately before a citation
+      // (the model sometimes emits "Office , [Scheme, p.2]" with a stray
+      // space-before-bracket).
+      const between = answer.slice(cursor, span.start).replace(/\s+$/, "");
+      if (between) container.appendChild(document.createTextNode(between));
     }
     const numbers = [];
     let firstDoc = null;
@@ -483,17 +696,14 @@ function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
     if (numbers.length) {
       const marker = document.createElement("sup");
       marker.className = "citation-marker";
-      marker.textContent = `[${numbers.join(",")}]`;
-      marker.addEventListener("click", () => {
-        const { source } = firstDoc.passages[0];
-        openSourceDrawer({
-          doc_label: firstDoc.docLabel,
-          section: source.section_or_page,
-          score: source.score,
-          chunk_id: source.chunk_id,
-          text: source.text,
-        });
+      const link = document.createElement("a");
+      link.href = `#source-row-${firstDoc.number}`;
+      link.textContent = `[${numbers.join(",")}]`;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        scrollToAndHighlightSourceRow(firstDoc.number);
       });
+      marker.appendChild(link);
       container.appendChild(marker);
     }
     cursor = span.end;
@@ -501,6 +711,68 @@ function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
   if (cursor < answer.length) {
     container.appendChild(document.createTextNode(answer.slice(cursor)));
   }
+}
+
+// Scrolls the matching Sources row into view and briefly highlights it, so a
+// resident clicking "[1]" can see which row it points to (§4).
+function scrollToAndHighlightSourceRow(number) {
+  const row = document.getElementById(`source-row-${number}`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.classList.add("source-entry-highlight");
+  setTimeout(() => row.classList.remove("source-entry-highlight"), 1600);
+}
+
+// 3d: a cited document that's been replaced by a newer version gets a
+// warning at the top of the answer card, not buried in the source row.
+function renderSupersessionWarning(sources) {
+  const banner = document.getElementById("answer-supersession-warning");
+  const detail = document.getElementById("answer-supersession-detail");
+  const superseded = sources.filter((s) => s.is_current === false || s.superseded === true);
+  if (!superseded.length) {
+    banner.classList.add("hidden");
+    return;
+  }
+  detail.textContent =
+    "One cited document has been replaced by a newer version. Amounts may have changed.";
+  banner.classList.remove("hidden");
+}
+
+// 3e: flag once, under the answer, when the strongest (highest-authority)
+// cited source is a low-tier form/checklist rather than a scheme page --
+// never colour-coded or badged per row, which would invite a resident to
+// argue with the ranking.
+function renderTopTierNote(sources) {
+  const note = document.getElementById("answer-tier-note");
+  const ranked = sources
+    .filter((s) => typeof s.authority_rank === "number")
+    .sort((a, b) => a.authority_rank - b.authority_rank);
+  const top = ranked[0];
+  if (!top || (top.tier !== "D" && top.tier !== "E")) {
+    note.classList.add("hidden");
+    note.textContent = "";
+    return;
+  }
+  note.textContent =
+    "The strongest match here is a form, not the scheme page — conditions may be stated more fully elsewhere.";
+  note.classList.remove("hidden");
+}
+
+// Page-level as-of line, derived from the newest last_updated across cited
+// sources rather than a hardcoded date (3d).
+function renderAsOfLine(sources) {
+  const line = document.getElementById("answer-asof-line");
+  const dates = sources.map((s) => s.last_updated).filter(Boolean).sort();
+  const newest = dates[dates.length - 1];
+  const uniqueDocs = new Set(sources.map((s) => s.display_name || s.scheme_name)).size;
+  if (!uniqueDocs) {
+    line.classList.add("hidden");
+    return;
+  }
+  line.textContent = newest
+    ? `Checked against ${uniqueDocs} published document${uniqueDocs === 1 ? "" : "s"} · newest source updated ${newest}.`
+    : `Checked against ${uniqueDocs} published document${uniqueDocs === 1 ? "" : "s"}.`;
+  line.classList.remove("hidden");
 }
 
 function renderResult(result) {
@@ -514,6 +786,10 @@ function renderResult(result) {
   const sourcesByKey = new Map();
   sources.forEach((source) => sourcesByKey.set(`${source.scheme_name} ${source.section_or_page}`, source));
 
+  // First pass: walk the citations purely to populate docIndex (the DOM this
+  // builds gets discarded by the second pass below, once doc.number is
+  // final) -- addSource is idempotent per docLabel, so re-running it after
+  // sorting is safe and returns the same doc objects.
   const docIndex = buildDocIndex();
   renderAnswerTextWithCitations(result.answer || "", sourcesByKey, docIndex);
 
@@ -523,7 +799,20 @@ function renderResult(result) {
   if (!docIndex.docs.length) {
     sources.forEach((source) => docIndex.addSource(source));
   }
-  renderSources(docIndex.docs);
+
+  // Sort by authority once, then re-render the answer text so its "[n]"
+  // markers use the final, post-sort numbers -- these must agree with the
+  // Sources list below, which reads the same doc.number.
+  sortAndNumberDocs(docIndex.docs);
+  renderAnswerTextWithCitations(result.answer || "", sourcesByKey, docIndex);
+
+  // A similarity score means nothing to a resident and undercuts the answer
+  // -- only show it when the Advanced panel is open (team demo context).
+  const showScore = !advancedBand.classList.contains("hidden");
+  renderSources(docIndex.docs, showScore);
+  renderSupersessionWarning(sources);
+  renderTopTierNote(sources);
+  renderAsOfLine(sources);
 
   const retrievalMode = result.diagnostics && result.diagnostics.retrieval ? result.diagnostics.retrieval.mode : null;
   const docCount = docIndex.docs.length;
@@ -809,13 +1098,31 @@ function renderAnswer(result) {
   }
 }
 
-function renderError(message) {
+function renderError(debugDetail) {
   document.getElementById("answer-abstained-badge").classList.add("hidden");
   document.getElementById("citation-warning-banner").classList.add("hidden");
   document.getElementById("diagnostics-panel").classList.add("hidden");
+  document.getElementById("answer-citation-note").classList.add("hidden");
+  document.getElementById("answer-supersession-warning").classList.add("hidden");
+  document.getElementById("answer-tier-note").classList.add("hidden");
+  document.getElementById("answer-asof-line").classList.add("hidden");
   generalAnswerView.classList.remove("hidden");
   shortlistView.classList.add("hidden");
-  document.getElementById("answer-text").textContent = message;
+
+  const container = document.getElementById("answer-text");
+  container.innerHTML = "";
+  const line1 = document.createElement("p");
+  line1.textContent = "The document search did not respond.";
+  container.appendChild(line1);
+  const line2 = document.createElement("p");
+  line2.className = "answer-error-note";
+  line2.textContent = "No answer was generated, so nothing here is a partial result.";
+  container.appendChild(line2);
+  const debugLine = document.createElement("p");
+  debugLine.className = "answer-error-debug";
+  debugLine.textContent = debugDetail;
+  container.appendChild(debugLine);
+
   document.getElementById("answer-meta").textContent = "";
   document.getElementById("sources-list").innerHTML = "";
   sourcesCard.classList.add("hidden");
@@ -856,14 +1163,12 @@ async function submitQuery(button, loadingLabel, url, payload) {
       } catch (parseError) {
         // Non-JSON error body; keep the status-code message.
       }
-      renderError(`Something went wrong: ${detail}`);
+      renderError(`HTTP ${response.status}: ${detail}`);
       return;
     }
     renderAnswer(await response.json());
   } catch (error) {
-    renderError(
-      "Could not reach the assistant. Check that the server is running, then try again."
-    );
+    renderError("Network error: could not reach the assistant server.");
   } finally {
     button.disabled = false;
     button.textContent = originalLabel;

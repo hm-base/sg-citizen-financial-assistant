@@ -361,6 +361,7 @@ def build_index_from_documents(
                     display_name=doc.get("display_name"),
                     source_url=doc.get("source_url", ""),
                     thumbnail_path=doc.get("thumbnail_path", ""),
+                    doc_metadata=doc_metadata_index.get(doc["doc_id"]),
                 )
             )
 

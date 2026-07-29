@@ -223,22 +223,84 @@ body {
 .provider-indicator.hidden { display: none; }
 
 .citation-warning {
-  /* High-contrast neutral text (AA against --color-bg in both themes) with a
-     colored accent border, rather than colored text on a tinted background --
-     avoids the low-contrast amber-on-navy failure mode in dark mode. */
-  background: var(--color-surface);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--color-warning-bg);
   color: var(--color-text);
-  border: 1px solid var(--color-warning);
-  border-left-width: 4px;
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.8rem;
-  font-family: var(--font-mono);
   font-size: 0.8rem;
   line-height: 1.5;
-  margin-top: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.citation-warning-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+}
+
+.citation-warning strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.citation-warning-detail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
 }
 
 .citation-warning.hidden { display: none; }
+
+.answer-citation-note {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: var(--lh-body);
+  margin-top: 10px;
+}
+
+.answer-citation-note.hidden { display: none; }
+
+.answer-error-note {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.answer-error-debug {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.slider-field {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row input[type="range"] {
+  width: 140px;
+}
+
+.slider-readout {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
 
 .dev-only-note {
   color: var(--color-muted);
@@ -275,15 +337,18 @@ body {
   border-color: var(--color-text);
 }
 
-.advanced-toggle-btn.active {
-  color: var(--color-on-primary);
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+/* Stays a ghost button when open -- filled orange would make it the
+   loudest element on the page, competing with the one or two primary
+   actions ("Get answer" / "Show my shortlist") allowed on screen. */
+.advanced-toggle-btn[aria-expanded="true"] {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .advanced-band {
-  background: var(--color-surface);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text) 4%, var(--color-bg));
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  margin-top: var(--pad-section);
 }
 
 .advanced-band.hidden { display: none; }
@@ -661,13 +726,15 @@ textarea:focus, select:focus, input:focus {
 
 .citation-marker {
   font-family: var(--font-mono);
-  color: var(--color-primary);
-  cursor: pointer;
   font-size: 0.75em;
-  margin-left: 1px;
 }
 
-.citation-marker:hover {
+.citation-marker a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.citation-marker a:hover {
   text-decoration: underline;
 }
 
@@ -763,11 +830,16 @@ textarea:focus, select:focus, input:focus {
   gap: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   padding: 16px 0;
+  transition: background 140ms ease-out;
 }
 
 .source-entry:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.source-entry-highlight {
+  background: var(--color-primary-soft);
 }
 
 .source-index {
@@ -781,6 +853,20 @@ textarea:focus, select:focus, input:focus {
 .source-body {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.source-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.source-agency {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-muted);
 }
 
 .source-title {
@@ -803,6 +889,13 @@ textarea:focus, select:focus, input:focus {
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.source-provenance {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
   margin-bottom: 8px;
 }
 
@@ -814,6 +907,19 @@ textarea:focus, select:focus, input:focus {
   padding-left: 12px;
 }
 
+.source-excerpt-empty {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.source-actions-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+
 .source-show-btn {
   background: transparent;
   border: none;
@@ -822,6 +928,7 @@ textarea:focus, select:focus, input:focus {
   font-size: 12px;
   padding: 6px 0 0;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .source-show-btn:hover {
@@ -840,6 +947,50 @@ textarea:focus, select:focus, input:focus {
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   border-radius: var(--radius-sm);
 }
+
+.source-thumb-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 92px;
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  padding: 6px;
+}
+
+.source-thumb-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.source-thumb-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.source-licence-note {
+  color: var(--color-muted);
+  font-size: 11px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.answer-asof-line {
+  max-width: 62ch;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: var(--lh-body);
+  margin-top: 12px;
+}
+
+.answer-asof-line.hidden { display: none; }
 
 .sources-expand-btn {
   display: block;
