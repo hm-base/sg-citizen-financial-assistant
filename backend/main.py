@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -149,12 +150,19 @@ def profile_query(
 
 @app.get("/api/config")
 def get_config():
+    metadata_path = Path(config.CHROMA_METADATA_PATH)
+    index_built_at = (
+        datetime.fromtimestamp(metadata_path.stat().st_mtime, tz=timezone.utc).isoformat()
+        if metadata_path.exists()
+        else None
+    )
     return {
         "top_k": config.TOP_K,
         "similarity_threshold": config.SIMILARITY_THRESHOLD,
         "retrieval_mode": config.RETRIEVAL_MODE,
         "llm_provider": config.LLM_PROVIDER,
         "rewrite_query": config.ENABLE_QUERY_REWRITE,
+        "index_built_at": index_built_at,
     }
 
 

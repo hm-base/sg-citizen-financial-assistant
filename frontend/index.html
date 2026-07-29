@@ -31,6 +31,8 @@
     <button class="mode-btn" data-mode="profile" role="tab" aria-selected="false">Personal eligibility shortlist</button>
   </div>
 
+  <div id="stale-index-banner" class="stale-index-banner hidden" data-noprint></div>
+
   <main class="layout">
     <section class="input-panel">
       <div id="general-panel" class="mode-panel">
@@ -117,6 +119,12 @@
 
     <section class="answer-panel">
       <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
+      <div id="answer-empty-state" class="shortlist-empty-state hidden">
+        <p>That is not a decision about you.</p>
+        <div class="answer-actions" data-noprint>
+          <button type="button" class="answer-action-btn" id="answer-empty-rephrase-btn">Try a different question</button>
+        </div>
+      </div>
 
       <div id="general-answer-view">
         <div class="answer-card">

@@ -182,6 +182,28 @@ thresholdInput.addEventListener("input", updateThresholdReadout);
 // blank inputs that would post NaN.
 const OFFLINE_FALLBACK_CONFIG = { top_k: 5, similarity_threshold: 0.35 };
 
+// "Stale" state: a warning strip under the tabs naming the last index
+// refresh date, so a demo doesn't silently answer from a day-old rebuild
+// without anyone noticing. 24h is a reasonable staleness threshold for a
+// project where the index is rebuilt by hand, not on a schedule.
+const STALE_INDEX_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+function renderStaleIndexBanner(indexBuiltAt) {
+  const banner = document.getElementById("stale-index-banner");
+  if (!indexBuiltAt) {
+    banner.classList.add("hidden");
+    return;
+  }
+  const builtAtMs = Date.parse(indexBuiltAt);
+  if (Number.isNaN(builtAtMs) || Date.now() - builtAtMs < STALE_INDEX_THRESHOLD_MS) {
+    banner.classList.add("hidden");
+    return;
+  }
+  const dateLabel = new Date(builtAtMs).toISOString().slice(0, 10);
+  banner.textContent = `The knowledge base was last refreshed ${dateLabel}. Answers may not reflect newer documents.`;
+  banner.classList.remove("hidden");
+}
+
 async function initConfig() {
   try {
     const response = await fetch("/api/config");
@@ -200,6 +222,7 @@ async function initConfig() {
       providerIndicator.textContent = `LLM: ${cfg.llm_provider}`;
       providerIndicator.classList.remove("hidden");
     }
+    renderStaleIndexBanner(cfg.index_built_at);
   } catch (error) {
     if (!topKInput.value) topKInput.value = OFFLINE_FALLBACK_CONFIG.top_k;
     if (!thresholdInput.value) {
@@ -781,6 +804,10 @@ function renderResult(result) {
 
   const badge = document.getElementById("answer-abstained-badge");
   badge.classList.toggle("hidden", !result.abstained);
+  // Empty state (§ States): reassures the resident this isn't a judgment
+  // about them, with an escape action, rather than just the raw fallback
+  // sentence sitting alone in the answer card.
+  document.getElementById("answer-empty-state").classList.toggle("hidden", !result.abstained);
 
   const sources = result.sources || [];
   const sourcesByKey = new Map();
@@ -826,6 +853,11 @@ function renderResult(result) {
 
 document.getElementById("answer-check-btn").addEventListener("click", () => setMode("profile"));
 document.getElementById("answer-print-btn").addEventListener("click", () => window.print());
+document.getElementById("answer-empty-rephrase-btn").addEventListener("click", () => {
+  const input = document.getElementById("question-input");
+  input.value = "";
+  input.focus();
+});
 document.getElementById("answer-wrong-btn").addEventListener("click", (event) => {
   const button = event.currentTarget;
   const original = button.textContent;
@@ -1143,6 +1175,7 @@ function renderAnswer(result) {
 
 function renderError(debugDetail) {
   document.getElementById("answer-abstained-badge").classList.add("hidden");
+  document.getElementById("answer-empty-state").classList.add("hidden");
   document.getElementById("citation-warning-banner").classList.add("hidden");
   document.getElementById("diagnostics-panel").classList.add("hidden");
   document.getElementById("answer-citation-note").classList.add("hidden");
