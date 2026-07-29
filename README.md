@@ -12,7 +12,22 @@ See `docs/superpowers/specs/2026-07-28-local-rag-implementation-design.md` for t
 6. Run `.venv\Scripts\pytest` (Windows) or `.venv/bin/pytest` (Unix) to verify the environment.
 
 ## Ingesting the Knowledge Base
-1. `data/raw/` is a Windows directory junction pointing at the team's shared Google Drive folder (`sg-finance-project`, synced via Google Drive for Desktop in **Mirror files** mode — Stream mode leaves cloud-only placeholders on disk that ingestion can't read). To add scheme documents: drop official scheme PDFs/HTML into the Drive folder's `text/<category>/`, infographic images into `images/<category>/`, and videos into `video/<category>/` — they show up under `data/raw/...` automatically once Drive syncs, no manual copying needed. (Alternatively, list URLs in `data/sources.yaml` and run `python -m ingestion.fetch_sources`.) Anyone re-cloning this repo on a machine without that Drive folder mounted at `G:\My Drive\sg-finance-project` needs to either recreate the junction (`New-Item -ItemType Junction -Path data\raw -Target "G:\My Drive\sg-finance-project"` in PowerShell) or just use a plain local `data/raw/` folder instead.
+
+`data/raw/` is a Windows directory junction pointing at the team's shared Google Drive folder (`sg-finance-project`), so anyone can drop a new document in Drive and every teammate's local `data/raw/` picks it up automatically — no manual file copying, no git commit needed for documents.
+
+### One-time per-machine setup (do this once per teammate)
+1. Install [Google Drive for Desktop](https://www.google.com/drive/download/) and sign in with the account that has access to the shared folder.
+2. Open the [shared folder link](https://drive.google.com/drive/folders/1VBU3zGuh9pyByyOETJ6NUDP-3kDBgaZu?usp=sharing) → folder name dropdown (or right-click) → **"Add shortcut to Drive"** → put it under "My Drive".
+3. Switch Drive to **Mirror files** mode, not Stream mode: Drive for Desktop → Settings (gear icon) → Preferences → Google Drive → **"Mirror files"**. This matters — Stream mode only keeps cloud-only placeholders on disk, and our ingestion (PDF parsing, Tesseract OCR, video transcription) needs the real bytes present locally. (If you want to stay in Stream mode overall, at minimum right-click the synced folder → **"Available offline"**.)
+4. Find the local path Drive synced it to (Drive for Desktop preferences will show it, typically its own drive letter like `G:\My Drive\sg-finance-project`).
+5. Create the junction so `data/raw/` transparently points at it (run from the repo root, in PowerShell):
+   ```powershell
+   New-Item -ItemType Junction -Path data\raw -Target "G:\My Drive\sg-finance-project"
+   ```
+   (Adjust the target path to whatever Drive synced to on your machine.) If you'd rather not use Drive at all, skip this and just use a plain local `data/raw/` folder instead.
+
+### Adding a new document (every time)
+1. Drop official scheme PDFs/HTML into the Drive folder's `text/<category>/`, infographic images into `images/<category>/`, and videos into `video/<category>/`. They appear under `data/raw/...` automatically once Drive syncs. (Alternatively, list URLs in `data/sources.yaml` and run `python -m ingestion.fetch_sources`.)
 2. Sub-folder names drive the `category` metadata that the personal-profile re-ranker matches on (see `CATEGORY_BY_FOLDER` in `ingestion/build_index.py`, e.g. `elderly` → `Seniors`, `comcare` → `Lower-income/employment`). Files dropped straight into `data/raw/text/` get `Uncategorized` and are never boosted for a profile.
 3. Run `python -m ingestion.build_index` to chunk, embed, and persist the FAISS index + metadata under `data/faiss/`. Discovery is recursive, PDF chunks are cited by real page number, and `data/raw/video/*.mp4` is transcribed through the configured LLM provider (Gemini) before indexing.
 
