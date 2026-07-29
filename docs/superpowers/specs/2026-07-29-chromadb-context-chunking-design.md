@@ -52,7 +52,37 @@ Three isolated swaps, each behind the interface it currently sits behind:
      document (e.g. "This chunk is from the Eligibility section of the CHAS
      Green Scheme page"), using the existing pluggable Gemini/Groq client
      (`get_llm_client()` in `backend/main.py`, reused at ingestion time) — no
-     new LLM provider.
+     new LLM provider. This step is independently skippable — see
+     "Contextual chunking is optional" below — since it costs one extra LLM
+     call per chunk (hundreds of calls for a full corpus rebuild), against a
+     Groq daily-token quota this project has already exhausted once.
+
+### Contextual chunking is optional
+
+Structure-aware splitting always runs — it's local, free, and has no
+external dependency. The **contextual-prepending** half is the one that
+costs LLM calls, so it's controlled independently, at two levels:
+
+1. **Upfront opt-out**: a new `config.ENABLE_CONTEXTUAL_CHUNKING` flag
+   (default `True`). Set it `False` before running
+   `python -m ingestion.build_index` when you know API budget is tight —
+   every chunk is then embedded from its raw structure-aware text only, no
+   LLM calls made, no risk to the day's quota.
+2. **Mid-run circuit breaker**: even with the flag on, if N consecutive
+   contextualization calls fail with the same `LLM_PROVIDER_ERRORS` types
+   `backend/main.py` already handles (rate limit / quota exhausted — e.g.
+   `GroqAPIStatusError`, `GeminiClientError`), ingestion stops calling the
+   LLM for the *remainder* of the run and falls back to raw-text chunks for
+   everything after that point, logging a one-line summary of how many
+   chunks got contextualized vs. fell back. This avoids two failure modes
+   observed in practice this project: (a) burning through an
+   already-exhausted quota chunk-by-chunk across a multi-hundred-chunk
+   corpus, and (b) an ingestion run silently taking far longer than
+   necessary retrying/timing out on every remaining chunk one at a time.
+
+Either way, a chunk that never got contextualized is not a broken chunk —
+it's exactly what today's chunker already produces, so "contextual chunking
+off" degrades to the pre-existing baseline, never to a failure.
 
 ## Chunk identity: from array position to `chunk_id`
 
@@ -94,12 +124,15 @@ shape generation already expects — `generation/pipeline.py` and
 
 ## Error handling
 
-The contextualization LLM call at ingestion time is **fail-open**, following
-the same convention as query rewriting (`generation/rewrite.py`): on a
-provider error or timeout, log it and embed the chunk's raw text with no
-prepended context, rather than blocking or failing the whole ingestion run
-over one bad chunk. This mirrors the existing
-`ops: [{"kind": "failed"}]` pattern used for rewrite failures.
+The contextualization LLM call at ingestion time is **fail-open per chunk**,
+following the same convention as query rewriting (`generation/rewrite.py`):
+on a provider error or timeout, log it and embed that chunk's raw text with
+no prepended context, rather than blocking or failing the whole ingestion
+run over one bad chunk. This mirrors the existing
+`ops: [{"kind": "failed"}]` pattern used for rewrite failures. Layered on
+top of that per-chunk fallback is the run-level circuit breaker described
+above ("Contextual chunking is optional") for the case where failures are
+sustained (quota exhaustion) rather than one-off.
 
 ## Testing
 
@@ -109,8 +142,10 @@ over one bad chunk. This mirrors the existing
   cases — heading/paragraph boundaries respected, oversized sections still
   fall back to word-count splitting.
 - `tests/ingestion/test_contextualize.py` (new): the LLM-prepend step,
-  including the fail-open path (provider error/timeout falls back to raw
-  chunk text).
+  including the per-chunk fail-open path (provider error/timeout falls back
+  to raw chunk text), the `ENABLE_CONTEXTUAL_CHUNKING=False` upfront-skip
+  path, and the mid-run circuit breaker (N consecutive quota/rate-limit
+  errors disables contextualization for the rest of the run).
 - `tests/retrieval/test_hybrid.py` (updated): reciprocal rank fusion keyed by
   `chunk_id` string instead of row index.
 - `evaluation/run_eval.py`: no code change required, since it consumes the
