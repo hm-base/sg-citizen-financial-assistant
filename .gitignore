@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-data/raw/
+#data/raw/
 data/processed/
 data/faiss/
 evaluation/results/
