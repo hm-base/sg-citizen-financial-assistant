@@ -27,6 +27,13 @@ prepending, decided during brainstorming on 2026-07-29.
 - Changing the external API of `RagIndex`, `answer_general_question`, or
   `answer_profile_question`. Generation and the backend consume the same
   shapes as before.
+- Semantic chunking (splitting on sentence-embedding similarity drops instead
+  of headings/word-count). Considered during brainstorming and left out: most
+  of this corpus is well-structured government FAQ/scheme pages with clear
+  heading boundaries, so structure-aware splitting alone likely captures most
+  of the benefit, and semantic chunking adds real implementation cost
+  (sentence segmentation, threshold tuning, variable-size chunks) for an
+  uncertain gain on already-structured text.
 
 ## Architecture
 
@@ -50,12 +57,49 @@ Three isolated swaps, each behind the interface it currently sits behind:
    - **Contextual prepending**: before embedding, prepend a short
      LLM-generated sentence describing where the chunk sits in its source
      document (e.g. "This chunk is from the Eligibility section of the CHAS
-     Green Scheme page"), using the existing pluggable Gemini/Groq client
-     (`get_llm_client()` in `backend/main.py`, reused at ingestion time) — no
-     new LLM provider. This step is independently skippable — see
+     Green Scheme page"). This step is independently skippable — see
      "Contextual chunking is optional" below — since it costs one extra LLM
-     call per chunk (hundreds of calls for a full corpus rebuild), against a
-     Groq daily-token quota this project has already exhausted once.
+     call per chunk (measured at 475 chunks for the current corpus; see
+     "Cost and time estimate").
+
+### Contextualization uses its own LLM provider, separate from live queries
+
+Contextualization is a one-time bulk job at ingestion time (475 calls in one
+run), fundamentally different in shape from live-query generation (a few
+calls per user question, spread over the demo). Routing both through the
+same `LLM_PROVIDER` risks the ingestion job burning through the same daily
+quota the live demo needs — exactly the failure this project already hit
+once with Groq's 100K-tokens/day cap.
+
+**New config**: `CONTEXTUAL_CHUNKING_LLM_PROVIDER` (default `"openai"`),
+independent of `LLM_PROVIDER` (which stays whatever's configured for live
+generation — Gemini or Groq). `ingestion/build_index.py` builds its LLM
+client from this dedicated setting via the same `OpenAIClient`/`GroqClient`/
+`GeminiClient` classes `backend/main.py` already uses, just picked by a
+different config key.
+
+### Cost and time estimate (measured against the current corpus)
+
+A dry run of `discover_documents` + the existing chunker over all of
+`data/raw/` (text only — images/video excluded, see below) gives real
+numbers to plan against:
+
+- 100 documents, 132,145 words → **475 chunks** at 350 words/50-word overlap.
+  (11 videos and all images aren't counted here: Tesseract isn't installed
+  locally and no transcription client was passed to the dry run, so those
+  chunks don't exist yet — the real final count will be somewhat higher.)
+- Contextualization = 475 LLM calls. Estimating ~600 input tokens (chunk +
+  doc metadata + instruction) and ~50 output tokens per call: **~309,000
+  tokens total** (~285K input, ~24K output).
+- **Groq free tier**: the 100K-tokens/day cap this project already hit would
+  be exceeded by contextualization alone — confirms `CONTEXTUAL_CHUNKING_LLM_PROVIDER=openai`
+  is the right default rather than reusing Groq.
+- **OpenAI (`gpt-5.4-mini`)**: using comparable current mini-tier pricing as
+  a reference (~$0.15/1M input, ~$0.60/1M output) — **≈ $0.06 total**.
+  Verify the actual `gpt-5.4-mini` rate before relying on this figure.
+- **Time**: at ~0.5-1.5s per call, sequential ≈ 8-12 minutes for all 475
+  calls; running several concurrently (bounded by the provider's
+  requests-per-minute cap) could bring this down to a few minutes.
 
 ### Contextual chunking is optional
 
@@ -71,14 +115,15 @@ costs LLM calls, so it's controlled independently, at two levels:
 2. **Mid-run circuit breaker**: even with the flag on, if N consecutive
    contextualization calls fail with the same `LLM_PROVIDER_ERRORS` types
    `backend/main.py` already handles (rate limit / quota exhausted — e.g.
-   `GroqAPIStatusError`, `GeminiClientError`), ingestion stops calling the
-   LLM for the *remainder* of the run and falls back to raw-text chunks for
-   everything after that point, logging a one-line summary of how many
-   chunks got contextualized vs. fell back. This avoids two failure modes
-   observed in practice this project: (a) burning through an
-   already-exhausted quota chunk-by-chunk across a multi-hundred-chunk
-   corpus, and (b) an ingestion run silently taking far longer than
-   necessary retrying/timing out on every remaining chunk one at a time.
+   `GroqAPIStatusError`, `GeminiClientError`, or an OpenAI equivalent),
+   ingestion stops calling the LLM for the *remainder* of the run and falls
+   back to raw-text chunks for everything after that point, logging a
+   one-line summary of how many chunks got contextualized vs. fell back.
+   This avoids two failure modes observed in practice this project: (a)
+   burning through an already-exhausted quota chunk-by-chunk across a
+   multi-hundred-chunk corpus, and (b) an ingestion run silently taking far
+   longer than necessary retrying/timing out on every remaining chunk one at
+   a time.
 
 Either way, a chunk that never got contextualized is not a broken chunk —
 it's exactly what today's chunker already produces, so "contextual chunking
@@ -144,8 +189,10 @@ sustained (quota exhaustion) rather than one-off.
 - `tests/ingestion/test_contextualize.py` (new): the LLM-prepend step,
   including the per-chunk fail-open path (provider error/timeout falls back
   to raw chunk text), the `ENABLE_CONTEXTUAL_CHUNKING=False` upfront-skip
-  path, and the mid-run circuit breaker (N consecutive quota/rate-limit
-  errors disables contextualization for the rest of the run).
+  path, the mid-run circuit breaker (N consecutive quota/rate-limit errors
+  disables contextualization for the rest of the run), and that the client
+  built for contextualization respects `CONTEXTUAL_CHUNKING_LLM_PROVIDER`
+  independently of `LLM_PROVIDER`.
 - `tests/retrieval/test_hybrid.py` (updated): reciprocal rank fusion keyed by
   `chunk_id` string instead of row index.
 - `evaluation/run_eval.py`: no code change required, since it consumes the
