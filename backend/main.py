@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import config
 from generation.gemini_client import GeminiClient
 from generation.groq_client import GroqClient
+from generation.openai_client import OpenAIClient
 from generation.pipeline import (
     RagIndex,
     ShortlistFormatError,
@@ -65,6 +66,8 @@ def get_rag_index() -> RagIndex:
 def get_llm_client():
     if config.LLM_PROVIDER == "groq":
         return GroqClient(api_key=config.GROQ_API_KEY, model_name=config.GROQ_MODEL)
+    if config.LLM_PROVIDER == "openai":
+        return OpenAIClient(api_key=config.OPENAI_API_KEY, model_name=config.OPENAI_MODEL)
     return GeminiClient(api_key=config.GEMINI_API_KEY, model_name=config.GEMINI_MODEL)
 
 

@@ -37,6 +37,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # to be confused with xAI's Grok. An earlier version of this project pointed
 # at xAI's API by mistake; the key actually configured was always a Groq key.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# OpenAI (api.openai.com) -- a third pluggable provider, useful as a fallback
+# when Groq's daily token quota is exhausted (this project has hit that limit
+# before). Not used for video transcription; that stays on Gemini.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Pinned Gemini generation names get retired out from under this project:
 # gemini-1.5-flash now 404s ("not found for API version v1beta") and even
 # gemini-2.5-flash 404s for keys created after its cutoff ("no longer available
@@ -48,6 +52,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # matters more than availability (e.g. gemini-3.6-flash, gemini-3.5-flash-lite).
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 
 FALLBACK_MESSAGE = (
     "The available knowledge base does not contain enough information "
