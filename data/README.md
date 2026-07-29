@@ -6,8 +6,8 @@
 | `datasets/<topic>/video/*.mp4` | Non-core videos | **Google Drive** |
 | `datasets/<topic>/pdf/*.pdf` | Original PDFs (CCP factsheets) | **Google Drive** (optional; text already in `.md`) |
 | `data/raw/{text,video,images}/` | Local runtime mirror for the indexer | Local / Drive sync |
-| `data/meta/` | JSON sidecars | GitHub |
-| `data/sources_*.yaml` | Catalogs | GitHub |
+| `data/metadata/` | JSON sidecars | GitHub |
+| `data/metadata/sources_*.yaml` | Catalogs | GitHub |
 
 Shared Drive: https://drive.google.com/drive/folders/1VBU3zGuh9pyByyOETJ6NUDP-3kDBgaZu
 

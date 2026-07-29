@@ -48,6 +48,11 @@ CATEGORY_BY_FOLDER = {
     "workfare_wis": "Lower-income/employment",
     "skillsfuture_sctp": "Lower-income/employment",
     "career_conversion_ccp": "Lower-income/employment",
+    # CPF top-ups, MRSS/MMSS, Silver Support, retirement sum schemes -- mostly
+    # retirement-age content, so it re-ranks alongside the rest of Seniors.
+    "cpf_top_up": "Seniors",
+    "hdb_grants": "Housing",
+    "medisave_medishield": "Healthcare",
 }
 
 
@@ -133,12 +138,20 @@ def _display_name(path: Path) -> str:
 
 
 def _files_under(directory: Path, suffixes: tuple[str, ...]) -> list[Path]:
+    """Files under `directory`, skipping any path with an underscore-prefixed
+    directory component (e.g. `_pdf_archive/`) -- the convention this corpus
+    uses for archived originals whose content already has a live counterpart
+    elsewhere (e.g. a PDF re-archived after being transcribed to .md).
+    Indexing both would duplicate that content under two different doc_ids.
+    """
     if not directory.exists():
         return []
     return sorted(
         path
         for path in directory.rglob("*")
-        if path.is_file() and path.suffix.lower() in suffixes
+        if path.is_file()
+        and path.suffix.lower() in suffixes
+        and not any(part.startswith("_") for part in path.relative_to(directory).parts[:-1])
     )
 
 

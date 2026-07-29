@@ -7,7 +7,7 @@
   title: What are the eligibility criteria of the Workfare Income Supplement scheme?
   agency: CPF
   local_path: datasets/Workfare_WIS/markdown/cpf_wis_eligibility_faq.md
-  meta: data/meta/cpf_wis_eligibility_faq.json
+  meta: data/metadata/cpf_wis_eligibility_faq.json
 - doc_id: cpf_wis_scheme_page
   url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
   modality: text
@@ -17,7 +17,7 @@
   title: Workfare Income Supplement
   agency: CPF
   local_path: datasets/Workfare_WIS/markdown/cpf_wis_scheme_page.md
-  meta: data/meta/cpf_wis_scheme_page.json
+  meta: data/metadata/cpf_wis_scheme_page.json
 - doc_id: cpf_wis_govbenefits
   url: https://www.govbenefits.gov.sg/government-benefits-schemes/workfare-income-supplement/
   modality: text
@@ -27,7 +27,7 @@
   title: Workfare Income Supplement | Govbenefits
   agency: CPF
   local_path: datasets/Workfare_WIS/markdown/cpf_wis_govbenefits.md
-  meta: data/meta/cpf_wis_govbenefits.json
+  meta: data/metadata/cpf_wis_govbenefits.json
 - doc_id: mom_workfare_umbrella
   url: https://www.mom.gov.sg/employment-practices/schemes-for-employers-and-employees/workfare
   modality: text
@@ -37,7 +37,7 @@
   title: Workfare
   agency: MOM
   local_path: datasets/Workfare_WIS/markdown/mom_workfare_umbrella.md
-  meta: data/meta/mom_workfare_umbrella.json
+  meta: data/metadata/mom_workfare_umbrella.json
 - doc_id: swda_wss_scheme
   url: https://www.swda.gov.sg/home/individuals/funding-training-allowance/workfare-skills-support-scheme
   modality: text
@@ -47,7 +47,7 @@
   title: Workfare Skills Support Scheme
   agency: SWDA
   local_path: datasets/Workfare_WIS/markdown/swda_wss_scheme.md
-  meta: data/meta/swda_wss_scheme.json
+  meta: data/metadata/swda_wss_scheme.json
 - doc_id: ssg_sctp_scheme_page
   url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/skillsfuture-career-transition-programme.html
   modality: text
@@ -57,7 +57,7 @@
   title: SkillsFuture Career Transition Programme
   agency: SSG
   local_path: datasets/SkillsFuture_SCTP/markdown/ssg_sctp_scheme_page.md
-  meta: data/meta/ssg_sctp_scheme_page.json
+  meta: data/metadata/ssg_sctp_scheme_page.json
 - doc_id: ssg_skillsfuture_credit
   url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/SkillsFuture_Credit.html
   modality: text
@@ -67,7 +67,7 @@
   title: SkillsFuture Credit
   agency: SSG
   local_path: datasets/SkillsFuture_SCTP/markdown/ssg_skillsfuture_credit.md
-  meta: data/meta/ssg_skillsfuture_credit.json
+  meta: data/metadata/ssg_skillsfuture_credit.json
 - doc_id: swda_ccp_factsheet_202607
   url: https://www.swda.gov.sg/docs/programme/38b67413-cd3c-4968-8587-d370c4dc9256/ccp-factsheet-jul-2026.pdf
   modality: text
@@ -77,7 +77,7 @@
   title: CCP Factsheet (Jul 2026)
   agency: SWDA
   local_path: datasets/Career_Conversion_CCP/markdown/swda_ccp_factsheet_202607.md
-  meta: data/meta/swda_ccp_factsheet_202607.json
+  meta: data/metadata/swda_ccp_factsheet_202607.json
 - doc_id: swda_ccp_faqs_202607
   url: https://www.swda.gov.sg/docs/programme/5b1a3d31-3037-4a4c-b405-4e6130e4a763/ccp-faqs-jul-2026.pdf
   modality: text
@@ -87,7 +87,7 @@
   title: CCP FAQs (Jul 2026)
   agency: SWDA
   local_path: datasets/Career_Conversion_CCP/markdown/swda_ccp_faqs_202607.md
-  meta: data/meta/swda_ccp_faqs_202607.json
+  meta: data/metadata/swda_ccp_faqs_202607.json
 - doc_id: wsg_ccp_employers
   url: https://www.wsg.gov.sg/home/employers-industry-partners/workforce-development-job-redesign/career-conversion-programmes-employers
   modality: text
@@ -97,7 +97,7 @@
   title: Career Conversion Programmes (CCP) for Employers
   agency: WSG
   local_path: datasets/Career_Conversion_CCP/markdown/wsg_ccp_employers.md
-  meta: data/meta/wsg_ccp_employers.json
+  meta: data/metadata/wsg_ccp_employers.json
 - doc_id: wsg_ccp_individuals
   url: https://www.wsg.gov.sg/home/individuals/attachment-placement-programmes/career-conversion-programmes-for-individuals
   modality: text
@@ -107,7 +107,7 @@
   title: Career Conversion Programmes (CCP) for Individuals
   agency: WSG
   local_path: datasets/Career_Conversion_CCP/markdown/wsg_ccp_individuals.md
-  meta: data/meta/wsg_ccp_individuals.json
+  meta: data/metadata/wsg_ccp_individuals.json
 - doc_id: aisg_aiap_apprenticeship
   url: https://aiap.sg/apprenticeship/
   modality: text
@@ -117,7 +117,7 @@
   title: AI Apprenticeship Programme (AIAP)
   agency: AISG
   local_path: datasets/AIAP/markdown/aisg_aiap_apprenticeship.md
-  meta: data/meta/aisg_aiap_apprenticeship.json
+  meta: data/metadata/aisg_aiap_apprenticeship.json
 - doc_id: aisg_aiap_candidates_faq
   url: https://aisingapore.org/faq/what-type-of-candidates-are-we-looking-for-in-aiap/
   modality: text
@@ -127,7 +127,7 @@
   title: What type of candidates are we looking for in AIAP?
   agency: AISG
   local_path: datasets/AIAP/markdown/aisg_aiap_candidates_faq.md
-  meta: data/meta/aisg_aiap_candidates_faq.json
+  meta: data/metadata/aisg_aiap_candidates_faq.json
 - doc_id: aisg_aiap_innovation_page
   url: https://aisingapore.org/innovation/aiap/
   modality: text
@@ -137,7 +137,7 @@
   title: AI Apprenticeship Programme (AIAP) — AISG Innovation
   agency: AISG
   local_path: datasets/AIAP/markdown/aisg_aiap_innovation_page.md
-  meta: data/meta/aisg_aiap_innovation_page.json
+  meta: data/metadata/aisg_aiap_innovation_page.json
 - doc_id: sit_snaic_news_opening
   url: https://www.singaporetech.edu.sg/news/sit-marks-opening-its-flagship-ai-centre-sit-punggol-campus-key-initiatives-and-partnerships-advance
   modality: text
@@ -147,7 +147,7 @@
   title: SIT Marks Opening of Flagship AI Centre / SNAIC AI Programme
   agency: SIT
   local_path: datasets/SNAIC/markdown/sit_snaic_news_opening.md
-  meta: data/meta/sit_snaic_news_opening.json
+  meta: data/metadata/sit_snaic_news_opening.json
 - doc_id: sit_snaic_programme
   url: https://www.singaporetech.edu.sg/sitlearn/register-interest-snaic
   modality: text
@@ -157,7 +157,7 @@
   title: SNAIC AI Programme (SIT x NVIDIA)
   agency: SIT
   local_path: datasets/SNAIC/markdown/sit_snaic_programme.md
-  meta: data/meta/sit_snaic_programme.json
+  meta: data/metadata/sit_snaic_programme.json
 - doc_id: cpf_wis_video_NgsDN7EaeK0
   url: https://www.youtube.com/watch?v=NgsDN7EaeK0
   modality: video
@@ -167,7 +167,7 @@
   title: WIS YouTube explainer (NgsDN7EaeK0)
   agency: CPF
   local_path: datasets/Workfare_WIS/markdown/cpf_wis_video_NgsDN7EaeK0.md
-  meta: data/meta/cpf_wis_video_NgsDN7EaeK0.json
+  meta: data/metadata/cpf_wis_video_NgsDN7EaeK0.json
 - doc_id: cpf_wis_video_T80EdXXPPes
   url: https://www.youtube.com/watch?v=T80EdXXPPes
   modality: video
@@ -177,7 +177,7 @@
   title: WIS YouTube explainer (T80EdXXPPes)
   agency: CPF
   local_path: datasets/Workfare_WIS/markdown/cpf_wis_video_T80EdXXPPes.md
-  meta: data/meta/cpf_wis_video_T80EdXXPPes.json
+  meta: data/metadata/cpf_wis_video_T80EdXXPPes.json
 - doc_id: ssg_sctp_video_CkIBjH8z3GU
   url: https://www.youtube.com/watch?v=CkIBjH8z3GU
   modality: video
@@ -187,7 +187,7 @@
   title: SCTP YouTube explainer (CkIBjH8z3GU)
   agency: SSG
   local_path: datasets/SkillsFuture_SCTP/markdown/ssg_sctp_video_CkIBjH8z3GU.md
-  meta: data/meta/ssg_sctp_video_CkIBjH8z3GU.json
+  meta: data/metadata/ssg_sctp_video_CkIBjH8z3GU.json
 - doc_id: ssg_sctp_video_c4sf5C4hPb8
   url: https://www.youtube.com/watch?v=c4sf5C4hPb8
   modality: video
@@ -197,7 +197,7 @@
   title: SCTP YouTube explainer (c4sf5C4hPb8)
   agency: SSG
   local_path: datasets/SkillsFuture_SCTP/markdown/ssg_sctp_video_c4sf5C4hPb8.md
-  meta: data/meta/ssg_sctp_video_c4sf5C4hPb8.json
+  meta: data/metadata/ssg_sctp_video_c4sf5C4hPb8.json
 - doc_id: wsg_ccp_video_JIA9PgfCTgM
   url: https://www.youtube.com/watch?v=JIA9PgfCTgM
   modality: video
@@ -207,7 +207,7 @@
   title: CCP YouTube explainer (JIA9PgfCTgM)
   agency: WSG
   local_path: datasets/Career_Conversion_CCP/markdown/wsg_ccp_video_JIA9PgfCTgM.md
-  meta: data/meta/wsg_ccp_video_JIA9PgfCTgM.json
+  meta: data/metadata/wsg_ccp_video_JIA9PgfCTgM.json
 - doc_id: wsg_ccp_video_r1WeRjPmbCE
   url: https://www.youtube.com/watch?v=r1WeRjPmbCE
   modality: video
@@ -217,7 +217,7 @@
   title: CCP YouTube explainer (r1WeRjPmbCE)
   agency: WSG
   local_path: datasets/Career_Conversion_CCP/markdown/wsg_ccp_video_r1WeRjPmbCE.md
-  meta: data/meta/wsg_ccp_video_r1WeRjPmbCE.json
+  meta: data/metadata/wsg_ccp_video_r1WeRjPmbCE.json
 - doc_id: aisg_aiap_video_86q_VISXpzM
   url: https://www.youtube.com/watch?v=86q_VISXpzM
   modality: video
@@ -227,7 +227,7 @@
   title: AIAP YouTube (86q_VISXpzM)
   agency: AISG
   local_path: datasets/AIAP/markdown/aisg_aiap_video_86q_VISXpzM.md
-  meta: data/meta/aisg_aiap_video_86q_VISXpzM.json
+  meta: data/metadata/aisg_aiap_video_86q_VISXpzM.json
 - doc_id: aisg_aiap_video_fByVHVZtmQc
   url: https://www.youtube.com/watch?v=fByVHVZtmQc
   modality: video
@@ -237,7 +237,7 @@
   title: AIAP YouTube (fByVHVZtmQc)
   agency: AISG
   local_path: datasets/AIAP/markdown/aisg_aiap_video_fByVHVZtmQc.md
-  meta: data/meta/aisg_aiap_video_fByVHVZtmQc.json
+  meta: data/metadata/aisg_aiap_video_fByVHVZtmQc.json
 - doc_id: sit_snaic_video_i3SeCbgRkec
   url: https://www.youtube.com/watch?v=i3SeCbgRkec
   modality: video
@@ -247,4 +247,4 @@
   title: SNAIC YouTube (i3SeCbgRkec)
   agency: SIT
   local_path: datasets/SNAIC/markdown/sit_snaic_video_i3SeCbgRkec.md
-  meta: data/meta/sit_snaic_video_i3SeCbgRkec.json
+  meta: data/metadata/sit_snaic_video_i3SeCbgRkec.json

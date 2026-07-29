@@ -78,6 +78,24 @@ def test_discover_documents_disambiguates_colliding_filename_stems(tmp_path):
     assert "Terms-Conditions__elderly" in doc_ids
 
 
+def test_discover_documents_skips_underscore_prefixed_archive_folders(tmp_path):
+    raw_dir = tmp_path / "raw"
+    _write_pdf(
+        raw_dir / "text" / "comcare" / "scheme-page.pdf",
+        ["ComCare scheme page transcribed to markdown."],
+    )
+    _write_pdf(
+        raw_dir / "text" / "_pdf_archive" / "comcare" / "scheme-page.pdf",
+        ["Archived original PDF, same content as the transcribed copy."],
+    )
+
+    docs = discover_documents(raw_dir)
+
+    assert len(docs) == 1
+    assert docs[0]["doc_id"] == "scheme-page"
+    assert "_pdf_archive" not in docs[0]["source_file"]
+
+
 def test_discover_documents_skips_directories_and_unsupported_suffixes(nested_corpus):
     (nested_corpus / "text" / "elderly" / "notes.txt").write_text("ignore me", encoding="utf-8")
     (nested_corpus / "images" / "empty-subdir").mkdir(parents=True, exist_ok=True)

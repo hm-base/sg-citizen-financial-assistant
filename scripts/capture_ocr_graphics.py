@@ -17,7 +17,7 @@ import fitz  # PyMuPDF
 REPO = Path("/home/jonyling/SNAIC/Week7/Week7_Capstone/sg-citizen-financial-assistant")
 RAW_IMG = REPO / "data" / "raw" / "images"
 DRIVE = Path("/mnt/c/Users/User/Downloads/sg-finance-project-jony-upload/images")
-META = REPO / "data" / "meta"
+META = REPO / "data" / "metadata"
 MANIFEST = REPO / "data" / "sources_images.yaml"
 
 # Folder names under data/raw/images must match CATEGORY_BY_FOLDER keys
@@ -279,7 +279,7 @@ def write_yaml(metas: list[dict]) -> None:
         lines.append(f"  agency: {m['agency']}")
         lines.append(f"  title: \"{m['title']}\"")
         lines.append(f"  local_path: {m['local_path']}")
-        lines.append(f"  meta: data/meta/{m['doc_id']}.json")
+        lines.append(f"  meta: data/metadata/{m['doc_id']}.json")
         lines.append("")
     MANIFEST.write_text("\n".join(lines), encoding="utf-8")
 
@@ -315,7 +315,7 @@ def main() -> None:
     # also copy yaml + meta into Drive pack
     drive_root = DRIVE.parent
     (drive_root / "sources_images.yaml").write_text(MANIFEST.read_text(encoding="utf-8"), encoding="utf-8")
-    drive_meta = drive_root / "meta"
+    drive_meta = drive_root / "metadata"
     drive_meta.mkdir(exist_ok=True)
     for m in metas:
         (drive_meta / f"{m['doc_id']}.json").write_text(
