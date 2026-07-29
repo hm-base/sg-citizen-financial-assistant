@@ -4,6 +4,14 @@ PROFILE_CATEGORY_MAP = {
     "caregiver": ["Seniors/caregiving", "Healthcare"],
     "lower_income_employed": ["Lower-income/employment"],
     "hdb_housing": ["Housing", "Household/cost-of-living"],
+    # Pioneer/Merdeka Generation and own-disability are distinct from the
+    # generic "Senior (65+)"/"PWD in household" tags: they gate specific
+    # schemes (CHAS tier, Merdeka Generation Package, PioneerDAS, MediShield
+    # Life Premium Subsidies for the former; CareShield Life, ElderFund,
+    # ElderShield, HCG, IDAPE, MediSave Care for the latter) that a plain
+    # age or household-PWD signal doesn't reliably surface.
+    "pioneer_merdeka_generation": ["Seniors", "Healthcare"],
+    "own_disability": ["Seniors/caregiving", "Healthcare"],
 }
 
 
@@ -18,6 +26,10 @@ def infer_preferred_categories(profile: dict) -> set[str]:
         preferred.update(PROFILE_CATEGORY_MAP["young_children"])
     if "Caregiver" in tags:
         preferred.update(PROFILE_CATEGORY_MAP["caregiver"])
+    if "Pioneer/Merdeka Generation" in tags:
+        preferred.update(PROFILE_CATEGORY_MAP["pioneer_merdeka_generation"])
+    if "I have a disability" in tags:
+        preferred.update(PROFILE_CATEGORY_MAP["own_disability"])
 
     if profile.get("employment") == "Employed" and profile.get("monthly_income_band") in (
         "<$1.5k",

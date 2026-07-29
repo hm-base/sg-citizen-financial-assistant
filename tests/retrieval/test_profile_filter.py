@@ -37,6 +37,18 @@ def test_infer_preferred_categories_maps_lower_income_employed():
     assert "Lower-income/employment" not in categories
 
 
+def test_infer_preferred_categories_maps_pioneer_merdeka_generation_tag():
+    categories = infer_preferred_categories({"age": 76, "life_stage_tags": ["Pioneer/Merdeka Generation"]})
+    assert "Seniors" in categories
+    assert "Healthcare" in categories
+
+
+def test_infer_preferred_categories_maps_own_disability_tag():
+    categories = infer_preferred_categories({"age": 40, "life_stage_tags": ["I have a disability"]})
+    assert "Seniors/caregiving" in categories
+    assert "Healthcare" in categories
+
+
 def test_infer_preferred_categories_maps_hdb_housing():
     categories = infer_preferred_categories({"age": 50, "housing": "HDB", "life_stage_tags": []})
     assert "Housing" in categories
