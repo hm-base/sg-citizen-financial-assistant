@@ -1,0 +1,40 @@
+[
+  {
+    "doc_id": "sit_snaic_news_opening",
+    "title": "SIT Marks Opening of Flagship AI Centre / SNAIC AI Programme",
+    "source_url": "https://www.singaporetech.edu.sg/news/sit-marks-opening-its-flagship-ai-centre-sit-punggol-campus-key-initiatives-and-partnerships-advance",
+    "agency": "SIT",
+    "topic": "SNAIC",
+    "scheme": "SNAIC AI Programme",
+    "tier": "C",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2025-10-02",
+    "doc_type": "press_release",
+    "modality": "text"
+  },
+  {
+    "doc_id": "sit_snaic_programme",
+    "title": "SNAIC AI Programme (SIT x NVIDIA)",
+    "source_url": "https://www.singaporetech.edu.sg/sitlearn/register-interest-snaic",
+    "agency": "SIT",
+    "topic": "SNAIC",
+    "scheme": "SNAIC AI Programme",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2025-10-02",
+    "doc_type": "scheme_page",
+    "modality": "text"
+  },
+  {
+    "doc_id": "sit_snaic_video_i3SeCbgRkec",
+    "title": "SNAIC YouTube (i3SeCbgRkec)",
+    "source_url": "https://www.youtube.com/watch?v=i3SeCbgRkec",
+    "agency": "SIT",
+    "topic": "SNAIC",
+    "scheme": "SNAIC AI Programme",
+    "tier": "E",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "process_guide",
+    "modality": "video"
+  }
+]

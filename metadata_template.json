@@ -1,0 +1,52 @@
+[
+  {
+    "doc_id": "hdb_ehg_families",
+    "title": "Enhanced CPF Housing Grant for Families",
+    "source_url": "https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/couples-and-families/enhanced-cpf-housing-grant",
+    "agency": "HDB",
+    "topic": "HDB_Grants",
+    "scheme": "Enhanced CPF Housing Grant (Families)",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "hdb_REPLACE_ME",
+    "title": "REPLACE WITH THE PAGE HEADLINE, COPIED EXACTLY",
+    "source_url": "REPLACE WITH THE URL YOU LANDED ON",
+    "agency": "HDB",
+    "topic": "HDB_Grants",
+    "scheme": "REPLACE WITH THE SPECIFIC SCHEME NAME",
+    "tier": "D",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "cpf_REPLACE_ME",
+    "title": "REPLACE WITH THE PAGE HEADLINE, COPIED EXACTLY",
+    "source_url": "REPLACE WITH THE URL YOU LANDED ON",
+    "agency": "CPF",
+    "topic": "CPF_Top_Up",
+    "scheme": "REPLACE WITH THE SPECIFIC SCHEME NAME",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "cpf_REPLACE_ME",
+    "title": "REPLACE WITH THE PAGE HEADLINE, COPIED EXACTLY",
+    "source_url": "REPLACE WITH THE URL YOU LANDED ON",
+    "agency": "CPF",
+    "topic": "CPF_Top_Up",
+    "scheme": "REPLACE WITH THE SPECIFIC SCHEME NAME",
+    "tier": "B",
+    "retrieved_on": "2026-07-29"
+  },
+  {
+    "doc_id": "moh_REPLACE_ME",
+    "title": "REPLACE WITH THE PAGE HEADLINE, COPIED EXACTLY",
+    "source_url": "REPLACE WITH THE URL YOU LANDED ON",
+    "agency": "MOH",
+    "topic": "Medisave_Medishield",
+    "scheme": "REPLACE WITH THE SPECIFIC SCHEME NAME",
+    "tier": "A",
+    "retrieved_on": "2026-07-29"
+  }
+]

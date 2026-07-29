@@ -1,0 +1,78 @@
+[
+  {
+    "doc_id": "ssg_sctp_scheme_page",
+    "title": "SkillsFuture Career Transition Programme",
+    "source_url": "https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/skillsfuture-career-transition-programme.html",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Career Transition Programme",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2022-04-01",
+    "doc_type": "scheme_page",
+    "modality": "text"
+  },
+  {
+    "doc_id": "ssg_skillsfuture_credit",
+    "title": "SkillsFuture Credit",
+    "source_url": "https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/SkillsFuture_Credit.html",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Credit",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2020-01-01",
+    "doc_type": "scheme_page",
+    "modality": "text"
+  },
+  {
+    "doc_id": "ssg_sctp_scheme_overview",
+    "title": "SkillsFuture Career Transition Programme overview",
+    "source_url": "https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/skillsfuture-career-transition-programme.html",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Career Transition Programme",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "scheme_page",
+    "section": "Infographic / table graphic",
+    "modality": "image"
+  },
+  {
+    "doc_id": "ssg_skillsfuture_credit_amounts",
+    "title": "SkillsFuture Credit tiers ($500 / $4,000) eligibility table",
+    "source_url": "https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/SkillsFuture_Credit.html",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Credit",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "scheme_page",
+    "section": "Infographic / table graphic",
+    "modality": "image"
+  },
+  {
+    "doc_id": "ssg_sctp_video_CkIBjH8z3GU",
+    "title": "SCTP YouTube explainer (CkIBjH8z3GU)",
+    "source_url": "https://www.youtube.com/watch?v=CkIBjH8z3GU",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Career Transition Programme",
+    "tier": "E",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "process_guide",
+    "modality": "video"
+  },
+  {
+    "doc_id": "ssg_sctp_video_c4sf5C4hPb8",
+    "title": "SCTP YouTube explainer (c4sf5C4hPb8)",
+    "source_url": "https://www.youtube.com/watch?v=c4sf5C4hPb8",
+    "agency": "SSG",
+    "topic": "SkillsFuture_SCTP",
+    "scheme": "SkillsFuture Career Transition Programme",
+    "tier": "E",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "process_guide",
+    "modality": "video"
+  }
+]

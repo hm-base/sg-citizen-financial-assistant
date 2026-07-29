@@ -1,0 +1,65 @@
+[
+  {
+    "doc_id": "aisg_aiap_apprenticeship",
+    "title": "AI Apprenticeship Programme (AIAP)",
+    "source_url": "https://aiap.sg/apprenticeship/",
+    "agency": "AISG",
+    "topic": "AIAP",
+    "scheme": "AI Apprenticeship Programme",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2025-01-01",
+    "doc_type": "scheme_page",
+    "modality": "text"
+  },
+  {
+    "doc_id": "aisg_aiap_candidates_faq",
+    "title": "What type of candidates are we looking for in AIAP?",
+    "source_url": "https://aisingapore.org/faq/what-type-of-candidates-are-we-looking-for-in-aiap/",
+    "agency": "AISG",
+    "topic": "AIAP",
+    "scheme": "AI Apprenticeship Programme",
+    "tier": "B",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2025-01-01",
+    "doc_type": "faq",
+    "modality": "text"
+  },
+  {
+    "doc_id": "aisg_aiap_innovation_page",
+    "title": "AI Apprenticeship Programme (AIAP) — AISG Innovation",
+    "source_url": "https://aisingapore.org/innovation/aiap/",
+    "agency": "AISG",
+    "topic": "AIAP",
+    "scheme": "AI Apprenticeship Programme",
+    "tier": "A",
+    "retrieved_on": "2026-07-29",
+    "effective_date": "2025-01-01",
+    "doc_type": "scheme_page",
+    "modality": "text"
+  },
+  {
+    "doc_id": "aisg_aiap_video_86q_VISXpzM",
+    "title": "AIAP YouTube (86q_VISXpzM)",
+    "source_url": "https://www.youtube.com/watch?v=86q_VISXpzM",
+    "agency": "AISG",
+    "topic": "AIAP",
+    "scheme": "AI Apprenticeship Programme",
+    "tier": "E",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "process_guide",
+    "modality": "video"
+  },
+  {
+    "doc_id": "aisg_aiap_video_fByVHVZtmQc",
+    "title": "AIAP YouTube (fByVHVZtmQc)",
+    "source_url": "https://www.youtube.com/watch?v=fByVHVZtmQc",
+    "agency": "AISG",
+    "topic": "AIAP",
+    "scheme": "AI Apprenticeship Programme",
+    "tier": "E",
+    "retrieved_on": "2026-07-29",
+    "doc_type": "process_guide",
+    "modality": "video"
+  }
+]
