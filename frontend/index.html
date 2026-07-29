@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="prototype-banner">
-    <span class="tag">DEMO</span>
-    <span class="note">Answers are drawn from published scheme documents. Not an official government service.</span>
+  <div class="prototype-banner" data-noprint>
+    <span class="tag">PROTOTYPE</span>
+    <span class="note">Demonstration only. Not an official government service and not a decision on any application.</span>
   </div>
 
   <header class="app-header">
@@ -17,22 +17,22 @@
       <div class="brand-mark"></div>
       <div>
         <h1>Subsidies &amp; tax reliefs assistant</h1>
-        <div class="subtitle">Singapore Citizen Financial Assistant</div>
+        <div class="subtitle">Answers drawn from published scheme documents &middot; Singapore &middot; English only</div>
       </div>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" data-noprint>
       <span id="provider-indicator" class="provider-indicator hidden"></span>
       <button id="advanced-toggle-button" class="advanced-toggle-btn" type="button" aria-expanded="false">Advanced</button>
-      <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
+      <button id="theme-toggle-button" class="theme-toggle" type="button" aria-label="Switch colour theme">Warm earth theme</button>
     </div>
   </header>
 
-  <div class="mode-toggle" role="tablist" aria-label="Assistant mode">
-    <button class="mode-btn active" data-mode="general" role="tab">General Q&amp;A</button>
-    <button class="mode-btn" data-mode="profile" role="tab">Personal eligibility shortlist</button>
+  <div class="mode-toggle" role="tablist" aria-label="Assistant mode" data-noprint>
+    <button class="mode-btn active" data-mode="general" role="tab" aria-selected="true">General Q&amp;A</button>
+    <button class="mode-btn" data-mode="profile" role="tab" aria-selected="false">Personal eligibility shortlist</button>
   </div>
 
-  <div id="advanced-band" class="advanced-band hidden">
+  <div id="advanced-band" class="advanced-band hidden" data-noprint>
     <div class="advanced-band-inner">
       <div class="advanced-band-header">
         <span class="advanced-band-label">Advanced &middot; retrieval</span>
@@ -85,15 +85,23 @@
   <main class="layout">
     <section class="input-panel">
       <div id="general-panel" class="mode-panel">
-        <div class="sample-questions">
-          <label for="sample-topic-select">Try a sample question</label>
-          <select id="sample-topic-select"></select>
-          <div id="sample-question-buttons" class="sample-question-buttons"></div>
+        <h3 class="panel-title">Ask a question</h3>
+        <p class="panel-caption">Plain language is fine. Answers quote the scheme document they come from.</p>
+        <label for="question-input" class="visually-hidden">Ask a question about subsidies or tax reliefs</label>
+        <textarea id="question-input" rows="4" placeholder="e.g. How much CDC Voucher will a household get?"></textarea>
+        <div class="ask-row">
+          <button id="ask-button" class="primary-btn">Get answer</button>
+          <span class="ask-row-note">Nothing you type is saved.</span>
         </div>
 
-        <label for="question-input">Ask a question about subsidies or tax reliefs</label>
-        <textarea id="question-input" rows="3" placeholder="e.g. How much CDC Voucher will a household get?"></textarea>
-        <button id="ask-button" class="primary-btn">Ask</button>
+        <div class="sample-questions">
+          <div class="sample-questions-header">
+            <span class="section-eyebrow">Common questions</span>
+            <label for="sample-topic-select" class="sample-topic-label">Browse by topic</label>
+          </div>
+          <select id="sample-topic-select" class="sample-topic-select"></select>
+          <div id="sample-question-buttons" class="sample-question-buttons"></div>
+        </div>
       </div>
 
       <div id="profile-panel" class="mode-panel hidden">
@@ -161,7 +169,7 @@
             <span class="info-callout-dot"></span>
             <span>This summarises published documents, not tax advice.</span>
           </div>
-          <div class="answer-actions">
+          <div class="answer-actions" data-noprint>
             <button type="button" class="answer-action-btn" id="answer-check-btn">Check if this applies to me</button>
             <button type="button" class="answer-action-btn" id="answer-print-btn">Print this answer</button>
             <button type="button" class="answer-action-btn answer-action-btn-flag" id="answer-wrong-btn">This looks wrong</button>

@@ -2,25 +2,26 @@ const state = { mode: "general" };
 
 const THEME_STORAGE_KEY = "sg-financial-assistant-theme";
 const themeToggleButton = document.getElementById("theme-toggle-button");
-
+// "midnight-luxury" (dark) and "warm-earth" (light) are the two approved
+// design themes; the button always names the theme a click will switch TO.
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  themeToggleButton.textContent = theme === "dark" ? "☀️ Light mode" : "🌙 Dark mode";
+  themeToggleButton.textContent = theme === "midnight-luxury" ? "Warm earth theme" : "Midnight theme";
 }
 
 function initTheme() {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === "light" || stored === "dark") {
+  if (stored === "warm-earth" || stored === "midnight-luxury") {
     applyTheme(stored);
     return;
   }
   const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  applyTheme(prefersDark ? "dark" : "light");
+  applyTheme(prefersDark ? "midnight-luxury" : "warm-earth");
 }
 
 themeToggleButton.addEventListener("click", () => {
-  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-  const next = current === "dark" ? "light" : "dark";
+  const current = document.documentElement.getAttribute("data-theme") === "midnight-luxury" ? "midnight-luxury" : "warm-earth";
+  const next = current === "midnight-luxury" ? "warm-earth" : "midnight-luxury";
   applyTheme(next);
   localStorage.setItem(THEME_STORAGE_KEY, next);
 });
@@ -32,7 +33,10 @@ const profilePanel = document.getElementById("profile-panel");
 const modeButtons = document.querySelectorAll(".mode-btn");
 
 function setMode(mode) {
-  modeButtons.forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+  modeButtons.forEach((b) => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+    b.setAttribute("aria-selected", String(b.dataset.mode === mode));
+  });
   state.mode = mode;
   generalPanel.classList.toggle("hidden", mode !== "general");
   profilePanel.classList.toggle("hidden", mode !== "profile");
