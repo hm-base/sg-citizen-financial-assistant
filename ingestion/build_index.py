@@ -53,6 +53,11 @@ CATEGORY_BY_FOLDER = {
     "cpf_top_up": "Seniors",
     "hdb_grants": "Housing",
     "medisave_medishield": "Healthcare",
+    # Pre-existing corpus folders that had no mapping at all (fell to
+    # Uncategorized for both text and images).
+    "chas": "Healthcare",
+    "col": "Household/cost-of-living",
+    "gstv": "Household/cost-of-living",
 }
 
 
