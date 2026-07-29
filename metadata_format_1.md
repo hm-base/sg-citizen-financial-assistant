@@ -29,8 +29,8 @@ retrieved_on:  "2026-07-29"
 | **`doc_id`** | Unique slug for this document; becomes the filename. | Lowercase, underscores, no spaces. Prefix with the agency: `hdb_…`, `cpf_…`, `moh_…`. Must be unique **across the whole team** — see §3. |
 | **`title`** | The page's own headline, copied exactly. | From the page `<h1>` or PDF cover. For Budget documents include the year and annex number: `Budget 2025 Annex F-4 — MRSS for Persons With Disabilities`. |
 | **`source_url`** | The exact URL the content came from. | Paste the address bar. If the URL redirected, record where you **landed**, not what you typed. This is what the chatbot cites — without it an answer can't be traced. |
-| **`agency`** | Which government body published it. | One of: `HDB` `CPF` `MOH` `MOF` `IRAS` `MOM` `MND` `MSF` `SSG` `WSG` `SWDA` `AISG` `SIT` |
-| **`topic`** | Which of the 11 project topics this belongs to. | Your topic folder name exactly: `HDB_Grants` · `Medisave_Medishield` · `CPF_Top_Up` · `Workfare_WIS` · `SkillsFuture_SCTP` · `Career_Conversion_CCP` · `AIAP` · `SNAIC` · *(+ remaining team topics)* |
+| **`agency`** | Which government body published it. | One of: `HDB` `CPF` `MOH` `MOF` `IRAS` `MOM` `MND` `MSF` |
+| **`topic`** | Which of the 11 project topics this belongs to. | Your topic folder name exactly: `HDB_Grants` · `Medisave_Medishield` · `CPF_Top_Up` · *(+ the topic-1–8 names)* |
 | **`scheme`** | The specific scheme the document is about. | **Be precise, not general.** Write `MediSave` or `MediShield Life`, never "healthcare". Write `Enhanced CPF Housing Grant (Families)`, not "HDB grant". This is what stops the chatbot mixing up two schemes with different numbers. |
 | **`tier`** | How authoritative the source is. | One letter: `A` official scheme page · `B` official FAQ · `C` press release / Budget / speech · `D` PDF or annex · `E` adjacent scheme |
 | **`retrieved_on`** | The date you captured it. | `"YYYY-MM-DD"`, **in quotes**. Today's date. |
@@ -48,7 +48,7 @@ Leave these out entirely if you can't find them. **Do not guess.**
 | Field | What it is | How to fill it |
 |---|---|---|
 | **`effective_date`** | When the **figures** on this page took effect. | `"YYYY-MM-DD"` in quotes. Look for *"From 20 August 2024…"*, *"with effect from 1 June 2026"*, or a caption printed above a table. **The most valuable optional field** — these schemes change often, and without it the chatbot can quote a superseded amount as current. |
-| **`doc_type`** | What kind of document it is. | One of: `scheme_page` · `faq` · `press_release` · `budget_annex` · `pdf` · `process_guide` · *(video companions use `process_guide` + body note)* |
+| **`doc_type`** | What kind of document it is. | One of: `scheme_page` · `faq` · `press_release` · `budget_annex` · `pdf` · `process_guide` |
 | **`section`** | Which part of the page this came from. | Only if you split one page into several files, e.g. `"Grant amounts by household income"`. |
 
 > **`effective_date` vs `retrieved_on` — the one people get wrong.** `effective_date` = when the *rules changed*. `retrieved_on` = when *you looked*. A page retrieved today can carry figures effective from 2024. Both matter, and they're rarely the same.
@@ -127,43 +127,3 @@ The same file with only the 8 required fields is **still acceptable** — submit
 - [ ] Tables kept as Markdown tables
 - [ ] Page furniture stripped out
 - [ ] Dollar figures verbatim (`$120,000`, not `120000`)
-
----
-
-## 7. Jony submitted inventory (filled `.md` files)
-Path convention: `datasets/<topic>/markdown/<doc_id>.md` (also mirrored under `data/raw/text/<scheme>/` for the local indexer).
-
-| doc_id | topic | tier | core | path |
-|---|---|---|---|---|
-| `aisg_aiap_apprenticeship` | AIAP | A | True | `datasets/AIAP/markdown/aisg_aiap_apprenticeship.md` |
-| `aisg_aiap_candidates_faq` | AIAP | B | True | `datasets/AIAP/markdown/aisg_aiap_candidates_faq.md` |
-| `aisg_aiap_innovation_page` | AIAP | A | True | `datasets/AIAP/markdown/aisg_aiap_innovation_page.md` |
-| `aisg_aiap_video_86q_VISXpzM` | AIAP | E | False | `datasets/AIAP/markdown/aisg_aiap_video_86q_VISXpzM.md` |
-| `aisg_aiap_video_fByVHVZtmQc` | AIAP | E | False | `datasets/AIAP/markdown/aisg_aiap_video_fByVHVZtmQc.md` |
-| `cpf_wis_eligibility_faq` | Workfare_WIS | B | True | `datasets/Workfare_WIS/markdown/cpf_wis_eligibility_faq.md` |
-| `cpf_wis_govbenefits` | Workfare_WIS | A | True | `datasets/Workfare_WIS/markdown/cpf_wis_govbenefits.md` |
-| `cpf_wis_scheme_page` | Workfare_WIS | A | True | `datasets/Workfare_WIS/markdown/cpf_wis_scheme_page.md` |
-| `cpf_wis_video_NgsDN7EaeK0` | Workfare_WIS | E | False | `datasets/Workfare_WIS/markdown/cpf_wis_video_NgsDN7EaeK0.md` |
-| `cpf_wis_video_T80EdXXPPes` | Workfare_WIS | E | False | `datasets/Workfare_WIS/markdown/cpf_wis_video_T80EdXXPPes.md` |
-| `mom_workfare_umbrella` | Workfare_WIS | A | True | `datasets/Workfare_WIS/markdown/mom_workfare_umbrella.md` |
-| `sit_snaic_news_opening` | SNAIC | C | True | `datasets/SNAIC/markdown/sit_snaic_news_opening.md` |
-| `sit_snaic_programme` | SNAIC | A | True | `datasets/SNAIC/markdown/sit_snaic_programme.md` |
-| `sit_snaic_video_i3SeCbgRkec` | SNAIC | E | False | `datasets/SNAIC/markdown/sit_snaic_video_i3SeCbgRkec.md` |
-| `ssg_sctp_scheme_page` | SkillsFuture_SCTP | A | True | `datasets/SkillsFuture_SCTP/markdown/ssg_sctp_scheme_page.md` |
-| `ssg_sctp_video_CkIBjH8z3GU` | SkillsFuture_SCTP | E | False | `datasets/SkillsFuture_SCTP/markdown/ssg_sctp_video_CkIBjH8z3GU.md` |
-| `ssg_sctp_video_c4sf5C4hPb8` | SkillsFuture_SCTP | E | False | `datasets/SkillsFuture_SCTP/markdown/ssg_sctp_video_c4sf5C4hPb8.md` |
-| `ssg_skillsfuture_credit` | SkillsFuture_SCTP | A | True | `datasets/SkillsFuture_SCTP/markdown/ssg_skillsfuture_credit.md` |
-| `swda_ccp_factsheet_202607` | Career_Conversion_CCP | D | True | `datasets/Career_Conversion_CCP/markdown/swda_ccp_factsheet_202607.md` |
-| `swda_ccp_faqs_202607` | Career_Conversion_CCP | D | True | `datasets/Career_Conversion_CCP/markdown/swda_ccp_faqs_202607.md` |
-| `swda_wss_scheme` | Workfare_WIS | A | True | `datasets/Workfare_WIS/markdown/swda_wss_scheme.md` |
-| `wsg_ccp_employers` | Career_Conversion_CCP | A | True | `datasets/Career_Conversion_CCP/markdown/wsg_ccp_employers.md` |
-| `wsg_ccp_individuals` | Career_Conversion_CCP | A | True | `datasets/Career_Conversion_CCP/markdown/wsg_ccp_individuals.md` |
-| `wsg_ccp_video_JIA9PgfCTgM` | Career_Conversion_CCP | E | False | `datasets/Career_Conversion_CCP/markdown/wsg_ccp_video_JIA9PgfCTgM.md` |
-| `wsg_ccp_video_r1WeRjPmbCE` | Career_Conversion_CCP | E | False | `datasets/Career_Conversion_CCP/markdown/wsg_ccp_video_r1WeRjPmbCE.md` |
-
-### Checklist status
-- [x] All 8 required frontmatter fields on each `.md`
-- [x] Dates quoted
-- [x] Agency-prefixed unique `doc_id`s
-- [x] Website extracts converted to Markdown (HTML→md; PDF text→md)
-- [x] Videos have companion `.md` stubs + MP4 under `datasets/<topic>/video/`

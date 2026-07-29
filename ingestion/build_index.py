@@ -14,7 +14,7 @@ from retrieval.faiss_index import build_faiss_index, save_faiss_index
 
 logger = logging.getLogger(__name__)
 
-TEXT_SUFFIXES = (".pdf", ".html", ".htm")
+TEXT_SUFFIXES = (".pdf", ".html", ".htm", ".md", ".markdown")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 VIDEO_SUFFIXES = (".mp4",)
 

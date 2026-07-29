@@ -22,12 +22,24 @@ def extract_html_text(path: Path) -> str:
     return soup.get_text(separator=" ", strip=True)
 
 
+def extract_markdown_text(path: Path) -> str:
+    """Load a team .md source; strip YAML frontmatter (kept in sidecar / headers)."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4 :]
+    return text.strip()
+
+
 def load_text_file(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix == ".pdf":
         return extract_pdf_text(path)
     if suffix in (".html", ".htm"):
         return extract_html_text(path)
+    if suffix in (".md", ".markdown"):
+        return extract_markdown_text(path)
     raise ValueError(f"Unsupported text source suffix: {suffix}")
 
 
