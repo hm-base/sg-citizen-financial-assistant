@@ -143,7 +143,7 @@ def test_video_transcripts_are_chunked_and_indexed_like_text(nested_corpus):
     client = FakeVideoClient("CPF LIFE pays monthly payouts for life. " * 40)
 
     documents = discover_documents(nested_corpus, video_client=client)
-    _, chunk_records = build_index_from_documents(documents, embedder)
+    chunk_records, _metadatas, _vectors, _stats = build_index_from_documents(documents, embedder)
 
     video_records = [r for r in chunk_records if r["modality"] == "video"]
     assert video_records
@@ -242,9 +242,10 @@ def test_discovered_corpus_keeps_real_category_and_page_level_citations(nested_c
     embedder = load_embedder("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
     documents = discover_documents(nested_corpus)
 
-    faiss_index, chunk_records = build_index_from_documents(documents, embedder)
+    chunk_records, chroma_metadatas, vectors, _stats = build_index_from_documents(documents, embedder)
 
-    assert faiss_index.ntotal == len(chunk_records)
+    assert vectors.shape[0] == len(chunk_records)
+    assert len(chroma_metadatas) == len(chunk_records)
     categories = {record["category"] for record in chunk_records}
     assert categories == {"Seniors", "Lower-income/employment"}
     assert "Uncategorized" not in categories

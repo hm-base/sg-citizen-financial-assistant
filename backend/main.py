@@ -18,8 +18,8 @@ from generation.pipeline import (
 )
 from ingestion.build_index import load_metadata
 from retrieval.bm25_index import build_bm25_index
+from retrieval.chroma_index import get_chroma_client, get_or_create_chroma_collection
 from retrieval.embed import load_embedder
-from retrieval.faiss_index import load_faiss_index
 
 app = FastAPI(title="SG Citizen Financial Assistant")
 
@@ -46,16 +46,15 @@ LLM_PROVIDER_ERROR_DETAIL = (
 def get_rag_index() -> RagIndex:
     global _rag_index_cache
     if _rag_index_cache is None:
-        missing = [
-            path
-            for path in (config.FAISS_INDEX_PATH, config.FAISS_METADATA_PATH)
-            if not Path(path).exists()
-        ]
-        if missing:
+        if not Path(config.CHROMA_METADATA_PATH).exists():
             raise HTTPException(status_code=503, detail=INDEX_MISSING_DETAIL)
-        chunk_records = load_metadata(config.FAISS_METADATA_PATH)
+        chunk_records = load_metadata(config.CHROMA_METADATA_PATH)
+        chroma_client = get_chroma_client(config.CHROMA_PATH)
+        collection = get_or_create_chroma_collection(chroma_client, config.CHROMA_COLLECTION_NAME)
+        if collection.count() == 0:
+            raise HTTPException(status_code=503, detail=INDEX_MISSING_DETAIL)
         _rag_index_cache = RagIndex(
-            faiss_index=load_faiss_index(config.FAISS_INDEX_PATH),
+            chroma_collection=collection,
             bm25_index=build_bm25_index([record["text"] for record in chunk_records]),
             chunk_records=chunk_records,
             embedder=load_embedder(config.EMBEDDING_MODEL),

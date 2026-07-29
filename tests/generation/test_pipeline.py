@@ -2,6 +2,7 @@ import json
 import logging
 import time
 
+import chromadb
 import numpy as np
 import pytest
 
@@ -16,7 +17,22 @@ from generation.pipeline import (
     answer_profile_question,
 )
 from retrieval.bm25_index import build_bm25_index
-from retrieval.faiss_index import build_faiss_index
+from retrieval.chroma_index import build_chroma_collection, upsert_chunks
+
+
+def _chroma_collection_from(chunk_records: list[dict], vectors: np.ndarray):
+    """In-memory Chroma collection for a test's chunk_records + vectors,
+    keyed by chunk_id exactly as ingestion.build_index would upsert it."""
+    client = chromadb.EphemeralClient()
+    collection = build_chroma_collection(client, "test-collection")
+    upsert_chunks(
+        collection,
+        [record["chunk_id"] for record in chunk_records],
+        vectors,
+        documents=[record.get("text", "") for record in chunk_records],
+        metadatas=[{"doc_id": record.get("chunk_id", "")} for record in chunk_records],
+    )
+    return collection
 
 
 class FakeEmbedder:
@@ -64,10 +80,9 @@ def _build_rag_index():
         },
     ]
     vectors = np.array([[1.0, 0.0]], dtype=np.float32)
-    faiss_index = build_faiss_index(vectors)
     bm25_index = build_bm25_index([record["text"] for record in chunk_records])
     return RagIndex(
-        faiss_index=faiss_index,
+        chroma_collection=_chroma_collection_from(chunk_records, vectors),
         bm25_index=bm25_index,
         chunk_records=chunk_records,
         embedder=FakeEmbedder(),
@@ -342,7 +357,7 @@ def _build_fusion_rag_index():
         dtype=np.float32,
     )
     return RagIndex(
-        faiss_index=build_faiss_index(vectors),
+        chroma_collection=_chroma_collection_from(chunk_records, vectors),
         bm25_index=build_bm25_index([record["text"] for record in chunk_records]),
         chunk_records=chunk_records,
         embedder=ThreeChunkEmbedder(),
@@ -427,10 +442,11 @@ def test_hybrid_gate_is_never_below_the_dense_gate():
             def encode(self, texts_, **kwargs):
                 return np.repeat(query_vector, len(texts_), axis=0)
 
+        chunk_records = [{"chunk_id": f"chunk_{i:03d}", "text": text} for i, text in enumerate(texts)]
         rag_index = RagIndex(
-            faiss_index=build_faiss_index(vectors),
+            chroma_collection=_chroma_collection_from(chunk_records, vectors),
             bm25_index=build_bm25_index(texts),
-            chunk_records=[{"text": text} for text in texts],
+            chunk_records=chunk_records,
             embedder=FixedEmbedder(),
         )
 

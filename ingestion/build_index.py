@@ -4,13 +4,14 @@ import re
 from pathlib import Path
 
 from config import CHUNK_OVERLAP_WORDS, CHUNK_SIZE_WORDS
-from ingestion.chunker import chunk_text
+from ingestion.chunker import chunk_text_structured
+from ingestion.contextualize import contextualize_chunks
 from ingestion.load_images_ocr import extract_image_text
 from ingestion.load_text import clean_text, extract_pdf_pages, load_text_file
 from ingestion.load_video_gemini import transcribe_video
 from ingestion.metadata import build_chunk_records
+from retrieval.chroma_index import build_chroma_collection, get_chroma_client, upsert_chunks
 from retrieval.embed import embed_texts
-from retrieval.faiss_index import build_faiss_index, save_faiss_index
 
 logger = logging.getLogger(__name__)
 
@@ -265,13 +266,87 @@ def section_labels_for_chunks(chunks: list[dict], doc: dict) -> list[str]:
     return labels
 
 
-def build_index_from_documents(documents: list[dict], embedder):
+def load_doc_metadata_index(metadata_dir: Path) -> dict[str, dict]:
+    """doc_id -> flat, Chroma-metadata-safe dict, sourced from
+    data/metadata/*.json (both individual per-document files and combined
+    arrays like metadata_hm_base.json).
+
+    Known gap: a document whose doc_id (the raw filename stem, from
+    discover_documents) doesn't match the doc_id used when its metadata file
+    was authored simply gets no entry here and falls back to the minimal
+    fields always available from chunk_records -- not every document in this
+    corpus has had its metadata doc_id reconciled with its filename stem yet.
+    """
+    metadata_dir = Path(metadata_dir)
+    index: dict[str, dict] = {}
+    if not metadata_dir.exists():
+        return index
+    for path in sorted(metadata_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        entries = data if isinstance(data, list) else [data]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            doc_id = entry.get("doc_id")
+            if not doc_id:
+                continue
+            flat = entry.get("chroma_flat_metadata_template")
+            if not isinstance(flat, dict):
+                flat = {
+                    key: value
+                    for key, value in entry.items()
+                    if isinstance(value, (str, int, float, bool))
+                }
+            index[doc_id] = flat
+    return index
+
+
+def _chroma_metadata_for_chunk(
+    chunk_record: dict, doc_metadata_index: dict[str, dict], chunk_index: int, chunk_total: int
+) -> dict:
+    """Chroma requires flat str/int/float/bool metadata values. Builds that
+    payload from the doc-level template (if this doc_id has one) plus this
+    chunk's own position/section, so a document with no metadata match still
+    gets a usable (if minimal) payload rather than failing the upsert."""
+    template = doc_metadata_index.get(chunk_record["doc_id"], {})
+    base = {
+        "doc_id": chunk_record["doc_id"],
+        "scheme_name": chunk_record["scheme_name"],
+        "category": chunk_record["category"],
+        "modality": chunk_record["modality"],
+        "section": chunk_record["section_or_page"],
+        "source_url": chunk_record.get("source_url") or "",
+    }
+    return {**template, **base, "chunk_index": chunk_index, "chunk_total": chunk_total}
+
+
+def build_index_from_documents(
+    documents: list[dict],
+    embedder,
+    *,
+    doc_metadata_index: dict[str, dict] | None = None,
+    contextualize_llm_client=None,
+    enable_contextual_chunking: bool = True,
+    circuit_breaker_threshold: int = 5,
+):
+    """Chunks, (optionally) contextualizes, and embeds every document.
+
+    Returns (chunk_records, chroma_metadatas, vectors, contextualize_stats).
+    Contextualization only runs when `contextualize_llm_client` is given;
+    otherwise every chunk keeps its plain structure-aware text, matching the
+    "ENABLE_CONTEXTUAL_CHUNKING=False skips it entirely, no LLM calls made"
+    contract even before that flag is checked.
+    """
     if not documents:
         raise ValueError("No documents found under data/raw/ — nothing to index")
 
+    doc_metadata_index = doc_metadata_index or {}
     all_records: list[dict] = []
     for doc in documents:
-        chunks = chunk_text(doc["text"], CHUNK_SIZE_WORDS, CHUNK_OVERLAP_WORDS)
+        chunks = chunk_text_structured(doc["text"], CHUNK_SIZE_WORDS, CHUNK_OVERLAP_WORDS)
         labels = section_labels_for_chunks(chunks, doc)
         for chunk, label in zip(chunks, labels):
             all_records.extend(
@@ -292,13 +367,51 @@ def build_index_from_documents(documents: list[dict], embedder):
     if not all_records:
         raise ValueError("No documents found under data/raw/ — nothing to index")
 
+    contextualize_stats = {"contextualized": 0, "fell_back": len(all_records), "circuit_broken": False}
+    if contextualize_llm_client is not None:
+        all_records, contextualize_stats = contextualize_chunks(
+            all_records,
+            doc_metadata_index,
+            contextualize_llm_client,
+            enabled=enable_contextual_chunking,
+            circuit_breaker_threshold=circuit_breaker_threshold,
+        )
+
+    chunk_totals: dict[str, int] = {}
+    for record in all_records:
+        chunk_totals[record["doc_id"]] = chunk_totals.get(record["doc_id"], 0) + 1
+    chunk_position: dict[str, int] = {}
+    chroma_metadatas = []
+    for record in all_records:
+        position = chunk_position.get(record["doc_id"], 0)
+        chunk_position[record["doc_id"]] = position + 1
+        chroma_metadatas.append(
+            _chroma_metadata_for_chunk(record, doc_metadata_index, position, chunk_totals[record["doc_id"]])
+        )
+
     vectors = embed_texts([record["text"] for record in all_records], embedder)
-    faiss_index = build_faiss_index(vectors)
-    return faiss_index, all_records
+    return all_records, chroma_metadatas, vectors, contextualize_stats
 
 
-def persist_index(faiss_index, chunk_records: list[dict], faiss_path: Path, metadata_path: Path) -> None:
-    save_faiss_index(faiss_index, faiss_path)
+def persist_index(
+    chunk_records: list[dict],
+    chroma_metadatas: list[dict],
+    vectors,
+    metadata_path: Path,
+    *,
+    chroma_path: Path,
+    chroma_collection_name: str,
+) -> None:
+    client = get_chroma_client(chroma_path)
+    collection = build_chroma_collection(client, chroma_collection_name)
+    upsert_chunks(
+        collection,
+        [record["chunk_id"] for record in chunk_records],
+        vectors,
+        documents=[record["text"] for record in chunk_records],
+        metadatas=chroma_metadatas,
+    )
+
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     with open(metadata_path, "w", encoding="utf-8") as handle:
         for record in chunk_records:
@@ -326,6 +439,26 @@ if __name__ == "__main__":
             return None
         return client if hasattr(client, "transcribe") else None
 
+    def _contextualize_client():
+        # Deliberately keyed off CONTEXTUAL_CHUNKING_LLM_PROVIDER, not
+        # LLM_PROVIDER -- see config.py's comment on why this bulk ingestion-
+        # time job should not share a daily quota with live-query generation.
+        try:
+            if config.CONTEXTUAL_CHUNKING_LLM_PROVIDER == "groq":
+                from generation.groq_client import GroqClient
+
+                return GroqClient(api_key=config.GROQ_API_KEY, model_name=config.GROQ_MODEL)
+            if config.CONTEXTUAL_CHUNKING_LLM_PROVIDER == "gemini":
+                from generation.gemini_client import GeminiClient
+
+                return GeminiClient(api_key=config.GEMINI_API_KEY, model_name=config.GEMINI_MODEL)
+            from generation.openai_client import OpenAIClient
+
+            return OpenAIClient(api_key=config.OPENAI_API_KEY, model_name=config.OPENAI_MODEL)
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not construct an LLM client for contextualization.", exc_info=True)
+            return None
+
     print(f"Using device: {get_device()}")
     embedder = load_embedder(config.EMBEDDING_MODEL)
     documents = discover_documents(
@@ -336,6 +469,26 @@ if __name__ == "__main__":
     )
     print(f"Discovered {len(documents)} documents under data/raw/")
 
-    faiss_index, chunk_records = build_index_from_documents(documents, embedder)
-    persist_index(faiss_index, chunk_records, config.FAISS_INDEX_PATH, config.FAISS_METADATA_PATH)
-    print(f"Indexed {len(chunk_records)} chunks into {config.FAISS_INDEX_PATH}")
+    doc_metadata_index = load_doc_metadata_index(config.DATA_DIR / "metadata")
+    chunk_records, chroma_metadatas, vectors, contextualize_stats = build_index_from_documents(
+        documents,
+        embedder,
+        doc_metadata_index=doc_metadata_index,
+        contextualize_llm_client=_contextualize_client() if config.ENABLE_CONTEXTUAL_CHUNKING else None,
+        enable_contextual_chunking=config.ENABLE_CONTEXTUAL_CHUNKING,
+        circuit_breaker_threshold=config.CONTEXTUALIZE_CIRCUIT_BREAKER_THRESHOLD,
+    )
+    persist_index(
+        chunk_records,
+        chroma_metadatas,
+        vectors,
+        config.CHROMA_METADATA_PATH,
+        chroma_path=config.CHROMA_PATH,
+        chroma_collection_name=config.CHROMA_COLLECTION_NAME,
+    )
+    print(f"Indexed {len(chunk_records)} chunks into {config.CHROMA_PATH}")
+    print(
+        f"Contextualization: {contextualize_stats['contextualized']} contextualized, "
+        f"{contextualize_stats['fell_back']} fell back to raw text"
+        + (" (circuit breaker tripped)" if contextualize_stats["circuit_broken"] else "")
+    )

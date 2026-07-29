@@ -11,7 +11,7 @@ def test_config_defaults(monkeypatch):
 
     assert config.CHUNK_SIZE_WORDS == 350
     assert config.CHUNK_OVERLAP_WORDS == 50
-    assert config.EMBEDDING_MODEL == "sentence-transformers/all-MiniLM-L6-v2"
+    assert config.EMBEDDING_MODEL == "BAAI/bge-m3"
     assert config.TOP_K == 5
     assert 0.0 <= config.SIMILARITY_THRESHOLD <= 1.0
     assert config.RETRIEVAL_MODE == "dense"

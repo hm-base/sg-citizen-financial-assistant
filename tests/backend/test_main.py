@@ -1,3 +1,4 @@
+import chromadb
 import numpy as np
 import pytest
 from fastapi import HTTPException
@@ -7,7 +8,20 @@ import backend.main
 from backend.main import app, get_llm_client, get_rag_index
 from generation.pipeline import RagIndex
 from retrieval.bm25_index import build_bm25_index
-from retrieval.faiss_index import build_faiss_index
+from retrieval.chroma_index import build_chroma_collection, upsert_chunks
+
+
+def _chroma_collection_from(chunk_records: list[dict], vectors: np.ndarray):
+    client = chromadb.EphemeralClient()
+    collection = build_chroma_collection(client, "test-collection")
+    upsert_chunks(
+        collection,
+        [record["chunk_id"] for record in chunk_records],
+        vectors,
+        documents=[record.get("text", "") for record in chunk_records],
+        metadatas=[{"doc_id": record.get("chunk_id", "")} for record in chunk_records],
+    )
+    return collection
 
 
 class FakeEmbedder:
@@ -33,7 +47,7 @@ def _fake_rag_index():
     }]
     vectors = np.array([[1.0, 0.0]], dtype=np.float32)
     return RagIndex(
-        faiss_index=build_faiss_index(vectors),
+        chroma_collection=_chroma_collection_from(chunk_records, vectors),
         bm25_index=build_bm25_index([chunk_records[0]["text"]]),
         chunk_records=chunk_records,
         embedder=FakeEmbedder(),
@@ -157,8 +171,7 @@ def test_api_profile_query_returns_503_when_llm_provider_errors():
 
 def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(backend.main, "_rag_index_cache", None)
-    monkeypatch.setattr(backend.main.config, "FAISS_INDEX_PATH", tmp_path / "missing.faiss")
-    monkeypatch.setattr(backend.main.config, "FAISS_METADATA_PATH", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(backend.main.config, "CHROMA_METADATA_PATH", tmp_path / "missing.jsonl")
 
     with pytest.raises(HTTPException) as excinfo:
         get_rag_index()
@@ -169,8 +182,7 @@ def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeyp
 
 def test_api_query_returns_503_when_index_is_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(backend.main, "_rag_index_cache", None)
-    monkeypatch.setattr(backend.main.config, "FAISS_INDEX_PATH", tmp_path / "missing.faiss")
-    monkeypatch.setattr(backend.main.config, "FAISS_METADATA_PATH", tmp_path / "missing.jsonl")
+    monkeypatch.setattr(backend.main.config, "CHROMA_METADATA_PATH", tmp_path / "missing.jsonl")
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("never used")
     client = TestClient(app, raise_server_exceptions=False)
 
@@ -208,7 +220,9 @@ def _fake_low_similarity_rag_index():
             return np.array([unit for _ in texts], dtype=np.float32)
 
     return RagIndex(
-        faiss_index=build_faiss_index(np.array([[1.0, 0.0]], dtype=np.float32)),
+        chroma_collection=_chroma_collection_from(
+            chunk_records, np.array([[1.0, 0.0]], dtype=np.float32)
+        ),
         bm25_index=build_bm25_index([chunk_records[0]["text"]]),
         chunk_records=chunk_records,
         embedder=LowSimilarityEmbedder(),

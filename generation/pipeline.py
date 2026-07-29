@@ -14,8 +14,8 @@ from generation.prompts import (
     extract_cited_scheme_labels,
 )
 from retrieval.bm25_index import search_bm25_index
+from retrieval.chroma_index import search_chroma_index
 from retrieval.embed import embed_texts
-from retrieval.faiss_index import search_faiss_index
 from retrieval.hybrid import reciprocal_rank_fusion
 from retrieval.profile_filter import infer_preferred_categories, rerank_by_category
 
@@ -24,10 +24,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RagIndex:
-    faiss_index: object
+    chroma_collection: object
     bm25_index: object
     chunk_records: list[dict]
     embedder: object
+    chunk_id_to_index: dict = None
+
+    def __post_init__(self):
+        # Derived from chunk_records rather than required at every call site:
+        # chunk_records order is exactly the positional index space BM25
+        # already indexes into (see ingestion.build_index), and each record's
+        # chunk_id is what Chroma stores as its own identity -- this map is
+        # the translation between the two, built once here.
+        if self.chunk_id_to_index is None:
+            self.chunk_id_to_index = {
+                record["chunk_id"]: index for index, record in enumerate(self.chunk_records)
+            }
 
 
 def _retrieve(
@@ -64,7 +76,9 @@ def _retrieve(
     with abstention behaviour.
     """
     query_vector = embed_texts([query], rag_index.embedder)
-    dense_results = search_faiss_index(rag_index.faiss_index, query_vector, top_k)
+    dense_results = search_chroma_index(
+        rag_index.chroma_collection, query_vector, top_k, rag_index.chunk_id_to_index
+    )
 
     if retrieval_mode == "dense":
         dense_top_score = dense_results[0][1] if dense_results else float("-inf")

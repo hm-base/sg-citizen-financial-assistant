@@ -9,12 +9,44 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 FAISS_INDEX_PATH = DATA_DIR / "faiss" / "index.faiss"
 FAISS_METADATA_PATH = DATA_DIR / "faiss" / "metadata.jsonl"
+# Chroma persists its own on-disk state under this directory; metadata.jsonl
+# (chunk_records, used for BM25 + display) still lives alongside it rather
+# than inside Chroma, since it's also the source the backend/evaluation code
+# reads chunk records from directly.
+CHROMA_PATH = DATA_DIR / "chroma"
+CHROMA_METADATA_PATH = DATA_DIR / "chroma" / "metadata.jsonl"
+CHROMA_COLLECTION_NAME = "sg_financial_assistant"
 SOURCES_YAML_PATH = DATA_DIR / "sources.yaml"
 
 CHUNK_SIZE_WORDS = 350
 CHUNK_OVERLAP_WORDS = 50
 
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+# BGE-M3 (dense embeddings only -- see docs/superpowers/specs/2026-07-29-
+# chromadb-context-chunking-design.md's "Non-goals" for why sparse/hybrid
+# BGE-M3 was ruled out). Loads via the same sentence_transformers API as the
+# old all-MiniLM-L6-v2 model; ~2.3GB on first download.
+EMBEDDING_MODEL = "BAAI/bge-m3"
+
+# Contextual chunking: prepend a short LLM-generated "where this chunk sits"
+# sentence before embedding. Costs one LLM call per chunk (hundreds for a
+# full corpus rebuild), so it's independently skippable -- set False when API
+# budget is tight, rather than burning a provider's daily quota mid-run.
+ENABLE_CONTEXTUAL_CHUNKING = os.getenv("ENABLE_CONTEXTUAL_CHUNKING", "true").lower() == "true"
+# Deliberately separate from LLM_PROVIDER: contextualization is a one-time
+# bulk job at ingestion time (hundreds of calls in one run), fundamentally
+# different in shape from live-query generation (a few calls per question,
+# spread over a demo). Routing both through the same provider risks the bulk
+# job burning through the same daily quota the live demo needs -- this
+# project has hit Groq's 100K-tokens/day cap once already. OpenAI has no
+# such daily cap (pay-as-you-go), so it is the safer default for the bulk job.
+CONTEXTUAL_CHUNKING_LLM_PROVIDER = os.getenv("CONTEXTUAL_CHUNKING_LLM_PROVIDER", "openai")
+# After this many consecutive contextualization failures (rate limit/quota
+# errors), stop calling the LLM for the rest of the run and fall back to
+# plain structure-aware chunks for everything remaining -- see the spec's
+# "Contextual chunking is optional" section.
+CONTEXTUALIZE_CIRCUIT_BREAKER_THRESHOLD = int(
+    os.getenv("CONTEXTUALIZE_CIRCUIT_BREAKER_THRESHOLD", "5")
+)
 
 TOP_K = 5
 SIMILARITY_THRESHOLD = 0.35

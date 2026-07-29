@@ -1,5 +1,6 @@
 import json
 
+import chromadb
 import numpy as np
 
 from evaluation.run_eval import (
@@ -13,7 +14,20 @@ from evaluation.run_eval import (
 )
 from generation.pipeline import RagIndex
 from retrieval.bm25_index import build_bm25_index
-from retrieval.faiss_index import build_faiss_index
+from retrieval.chroma_index import build_chroma_collection, upsert_chunks
+
+
+def _chroma_collection_from(chunk_records: list[dict], vectors: np.ndarray):
+    client = chromadb.EphemeralClient()
+    collection = build_chroma_collection(client, "test-collection")
+    upsert_chunks(
+        collection,
+        [record["chunk_id"] for record in chunk_records],
+        vectors,
+        documents=[record.get("text", "") for record in chunk_records],
+        metadatas=[{"doc_id": record.get("chunk_id", "")} for record in chunk_records],
+    )
+    return collection
 
 
 class FakeEmbedder:
@@ -36,7 +50,7 @@ def _rag_index():
     }]
     vectors = np.array([[1.0, 0.0]], dtype=np.float32)
     return RagIndex(
-        faiss_index=build_faiss_index(vectors),
+        chroma_collection=_chroma_collection_from(chunk_records, vectors),
         bm25_index=build_bm25_index([chunk_records[0]["text"]]),
         chunk_records=chunk_records,
         embedder=FakeEmbedder(),
