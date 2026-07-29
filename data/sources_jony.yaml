@@ -1,0 +1,250 @@
+- doc_id: 01_cpf_wis_eligibility_faq
+  url: https://www.cpf.gov.sg/service/article/what-are-the-eligibility-criteria-of-the-workfare-income-supplement-scheme
+  modality: text
+  scheme: wis
+  topic: Workfare_WIS
+  core: true
+  title: What are the eligibility criteria of the Workfare Income Supplement scheme?
+  agency: CPF
+  local_path: data/raw/text/wis/01_cpf_wis_eligibility_faq.html
+  meta: data/meta/01_cpf_wis_eligibility_faq.json
+- doc_id: 01_cpf_wis_scheme_page
+  url: https://www.cpf.gov.sg/member/growing-your-savings/government-support/workfare-income-supplement
+  modality: text
+  scheme: wis
+  topic: Workfare_WIS
+  core: true
+  title: Workfare Income Supplement
+  agency: CPF
+  local_path: data/raw/text/wis/01_cpf_wis_scheme_page.html
+  meta: data/meta/01_cpf_wis_scheme_page.json
+- doc_id: 01_mom_workfare_umbrella
+  url: https://www.mom.gov.sg/employment-practices/schemes-for-employers-and-employees/workfare
+  modality: text
+  scheme: wis
+  topic: Workfare_WIS
+  core: true
+  title: Workfare
+  agency: MOM
+  local_path: data/raw/text/wis/01_mom_workfare_umbrella.html
+  meta: data/meta/01_mom_workfare_umbrella.json
+- doc_id: 01_govbenefits_wis
+  url: https://www.govbenefits.gov.sg/government-benefits-schemes/workfare-income-supplement/
+  modality: text
+  scheme: wis
+  topic: Workfare_WIS
+  core: true
+  title: Workfare Income Supplement | Govbenefits
+  agency: CPF
+  local_path: data/raw/text/wis/01_govbenefits_wis.html
+  meta: data/meta/01_govbenefits_wis.json
+- doc_id: 01_swda_wss_scheme
+  url: https://www.swda.gov.sg/home/individuals/funding-training-allowance/workfare-skills-support-scheme
+  modality: text
+  scheme: wis
+  topic: Workfare_WIS
+  core: true
+  title: Workfare Skills Support Scheme
+  agency: SWDA
+  local_path: data/raw/text/wis/01_swda_wss_scheme.html
+  meta: data/meta/01_swda_wss_scheme.json
+- doc_id: 02_ssg_sctp_scheme_page
+  url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/skillsfuture-career-transition-programme.html
+  modality: text
+  scheme: sctp
+  topic: SkillsFuture_SCTP
+  core: true
+  title: SkillsFuture Career Transition Programme
+  agency: SSG
+  local_path: data/raw/text/sctp/02_ssg_sctp_scheme_page.html
+  meta: data/meta/02_ssg_sctp_scheme_page.json
+- doc_id: 03_wsg_ccp_individuals
+  url: https://www.wsg.gov.sg/home/individuals/attachment-placement-programmes/career-conversion-programmes-for-individuals
+  modality: text
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: true
+  title: Career Conversion Programmes (CCP) for Individuals
+  agency: WSG
+  local_path: data/raw/text/ccp/03_wsg_ccp_individuals.html
+  meta: data/meta/03_wsg_ccp_individuals.json
+- doc_id: 03_wsg_ccp_employers
+  url: https://www.wsg.gov.sg/home/employers-industry-partners/workforce-development-job-redesign/career-conversion-programmes-employers
+  modality: text
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: true
+  title: Career Conversion Programmes (CCP) for Employers
+  agency: WSG
+  local_path: data/raw/text/ccp/03_wsg_ccp_employers.html
+  meta: data/meta/03_wsg_ccp_employers.json
+- doc_id: 03_swda_ccp_factsheet_202607
+  url: https://www.swda.gov.sg/docs/programme/38b67413-cd3c-4968-8587-d370c4dc9256/ccp-factsheet-jul-2026.pdf
+  modality: text
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: true
+  title: CCP Factsheet (Jul 2026)
+  agency: SWDA
+  local_path: data/raw/text/ccp/03_swda_ccp_factsheet_202607.pdf
+  meta: data/meta/03_swda_ccp_factsheet_202607.json
+- doc_id: 03_swda_ccp_faqs_202607
+  url: https://www.swda.gov.sg/docs/programme/5b1a3d31-3037-4a4c-b405-4e6130e4a763/ccp-faqs-jul-2026.pdf
+  modality: text
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: true
+  title: CCP FAQs (Jul 2026)
+  agency: SWDA
+  local_path: data/raw/text/ccp/03_swda_ccp_faqs_202607.pdf
+  meta: data/meta/03_swda_ccp_faqs_202607.json
+- doc_id: 04_aisg_aiap_apprenticeship
+  url: https://aiap.sg/apprenticeship/
+  modality: text
+  scheme: aiap
+  topic: AIAP
+  core: true
+  title: AI Apprenticeship Programme (AIAP)
+  agency: AISG
+  local_path: data/raw/text/aiap/04_aisg_aiap_apprenticeship.html
+  meta: data/meta/04_aisg_aiap_apprenticeship.json
+- doc_id: 04_aisg_aiap_candidates_faq
+  url: https://aisingapore.org/faq/what-type-of-candidates-are-we-looking-for-in-aiap/
+  modality: text
+  scheme: aiap
+  topic: AIAP
+  core: true
+  title: What type of candidates are we looking for in AIAP?
+  agency: AISG
+  local_path: data/raw/text/aiap/04_aisg_aiap_candidates_faq.html
+  meta: data/meta/04_aisg_aiap_candidates_faq.json
+- doc_id: 04_aisg_aiap_innovation_page
+  url: https://aisingapore.org/innovation/aiap/
+  modality: text
+  scheme: aiap
+  topic: AIAP
+  core: true
+  title: AI Apprenticeship Programme (AIAP) — AISG Innovation
+  agency: AISG
+  local_path: data/raw/text/aiap/04_aisg_aiap_innovation_page.html
+  meta: data/meta/04_aisg_aiap_innovation_page.json
+- doc_id: 05_sit_snaic_programme
+  url: https://www.singaporetech.edu.sg/sitlearn/register-interest-snaic
+  modality: text
+  scheme: snaic
+  topic: SNAIC
+  core: true
+  title: SNAIC AI Programme (SIT x NVIDIA)
+  agency: SIT
+  local_path: data/raw/text/snaic/05_sit_snaic_programme.html
+  meta: data/meta/05_sit_snaic_programme.json
+- doc_id: 05_sit_snaic_news_opening
+  url: https://www.singaporetech.edu.sg/news/sit-marks-opening-its-flagship-ai-centre-sit-punggol-campus-key-initiatives-and-partnerships-advance
+  modality: text
+  scheme: snaic
+  topic: SNAIC
+  core: true
+  title: SIT Marks Opening of Flagship AI Centre / SNAIC AI Programme
+  agency: SIT
+  local_path: data/raw/text/snaic/05_sit_snaic_news_opening.html
+  meta: data/meta/05_sit_snaic_news_opening.json
+- doc_id: 02_ssg_skillsfuture_credit
+  url: https://www.myskillsfuture.gov.sg/content/portal/en/career-resources/career-resources/education-career-personal-development/SkillsFuture_Credit.html
+  modality: text
+  scheme: sctp
+  topic: SkillsFuture_SCTP
+  core: true
+  title: SkillsFuture Credit
+  agency: SSG
+  local_path: data/raw/text/sctp/02_ssg_skillsfuture_credit.html
+  meta: data/meta/02_ssg_skillsfuture_credit.json
+- doc_id: 01_cpf_wis_video_T80EdXXPPes
+  url: https://www.youtube.com/watch?v=T80EdXXPPes
+  modality: video
+  scheme: wis
+  topic: Workfare_WIS
+  core: false
+  title: WIS YouTube explainer (T80EdXXPPes)
+  agency: CPF
+  local_path: data/raw/video/wis/01_cpf_wis_video_T80EdXXPPes.mp4
+  meta: data/meta/01_cpf_wis_video_T80EdXXPPes.json
+- doc_id: 01_cpf_wis_video_NgsDN7EaeK0
+  url: https://www.youtube.com/watch?v=NgsDN7EaeK0
+  modality: video
+  scheme: wis
+  topic: Workfare_WIS
+  core: false
+  title: WIS YouTube explainer (NgsDN7EaeK0)
+  agency: CPF
+  local_path: data/raw/video/wis/01_cpf_wis_video_NgsDN7EaeK0.mp4
+  meta: data/meta/01_cpf_wis_video_NgsDN7EaeK0.json
+- doc_id: 02_ssg_sctp_video_c4sf5C4hPb8
+  url: https://www.youtube.com/watch?v=c4sf5C4hPb8
+  modality: video
+  scheme: sctp
+  topic: SkillsFuture_SCTP
+  core: false
+  title: SCTP YouTube explainer (c4sf5C4hPb8)
+  agency: SSG
+  local_path: data/raw/video/sctp/02_ssg_sctp_video_c4sf5C4hPb8.mp4
+  meta: data/meta/02_ssg_sctp_video_c4sf5C4hPb8.json
+- doc_id: 02_ssg_sctp_video_CkIBjH8z3GU
+  url: https://www.youtube.com/watch?v=CkIBjH8z3GU
+  modality: video
+  scheme: sctp
+  topic: SkillsFuture_SCTP
+  core: false
+  title: SCTP YouTube explainer (CkIBjH8z3GU)
+  agency: SSG
+  local_path: data/raw/video/sctp/02_ssg_sctp_video_CkIBjH8z3GU.mp4
+  meta: data/meta/02_ssg_sctp_video_CkIBjH8z3GU.json
+- doc_id: 03_wsg_ccp_video_r1WeRjPmbCE
+  url: https://www.youtube.com/watch?v=r1WeRjPmbCE
+  modality: video
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: false
+  title: CCP YouTube explainer (r1WeRjPmbCE)
+  agency: WSG
+  local_path: data/raw/video/ccp/03_wsg_ccp_video_r1WeRjPmbCE.mp4
+  meta: data/meta/03_wsg_ccp_video_r1WeRjPmbCE.json
+- doc_id: 03_wsg_ccp_video_JIA9PgfCTgM
+  url: https://www.youtube.com/watch?v=JIA9PgfCTgM
+  modality: video
+  scheme: ccp
+  topic: Career_Conversion_CCP
+  core: false
+  title: CCP YouTube explainer (JIA9PgfCTgM)
+  agency: WSG
+  local_path: data/raw/video/ccp/03_wsg_ccp_video_JIA9PgfCTgM.mp4
+  meta: data/meta/03_wsg_ccp_video_JIA9PgfCTgM.json
+- doc_id: 04_aisg_aiap_video_86q_VISXpzM
+  url: https://www.youtube.com/watch?v=86q_VISXpzM
+  modality: video
+  scheme: aiap
+  topic: AIAP
+  core: false
+  title: AIAP YouTube (86q_VISXpzM)
+  agency: AISG
+  local_path: data/raw/video/aiap/04_aisg_aiap_video_86q_VISXpzM.mp4
+  meta: data/meta/04_aisg_aiap_video_86q_VISXpzM.json
+- doc_id: 04_aisg_aiap_video_fByVHVZtmQc
+  url: https://www.youtube.com/watch?v=fByVHVZtmQc
+  modality: video
+  scheme: aiap
+  topic: AIAP
+  core: false
+  title: AIAP YouTube (fByVHVZtmQc)
+  agency: AISG
+  local_path: data/raw/video/aiap/04_aisg_aiap_video_fByVHVZtmQc.mp4
+  meta: data/meta/04_aisg_aiap_video_fByVHVZtmQc.json
+- doc_id: 05_sit_snaic_video_i3SeCbgRkec
+  url: https://www.youtube.com/watch?v=i3SeCbgRkec
+  modality: video
+  scheme: snaic
+  topic: SNAIC
+  core: false
+  title: SNAIC YouTube (i3SeCbgRkec)
+  agency: SIT
+  local_path: data/raw/video/snaic/05_sit_snaic_video_i3SeCbgRkec.mp4
+  meta: data/meta/05_sit_snaic_video_i3SeCbgRkec.json

@@ -35,6 +35,14 @@ CATEGORY_BY_FOLDER = {
     "housing": "Housing",
     "household": "Household/cost-of-living",
     "cost-of-living": "Household/cost-of-living",
+    # Jony — SkillsFuture / WIS / CCP / AIAP / SNAIC
+    "skillsfuture": "Lower-income/employment",
+    "training": "Lower-income/employment",
+    "wis": "Lower-income/employment",
+    "sctp": "Lower-income/employment",
+    "ccp": "Lower-income/employment",
+    "aiap": "Lower-income/employment",
+    "snaic": "Lower-income/employment",
 }
 
 

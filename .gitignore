@@ -10,3 +10,12 @@ evaluation/results/
 .pytest_cache/
 data/raw_local_backup/
 **/desktop.ini
+*:Zone.Identifier
+
+# Large binaries live on Google Drive — keep markdown only in git
+datasets/**/video/
+datasets/**/pdf/
+
+# Capstone local links (symlinks; do not commit)
+docs/capstone/
+source_discovery
