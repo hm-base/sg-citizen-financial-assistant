@@ -59,6 +59,25 @@ def test_discover_documents_finds_files_in_nested_subdirectories(nested_corpus):
     assert {doc["doc_id"] for doc in docs} == {"silver-support", "comcare-steps"}
 
 
+def test_discover_documents_disambiguates_colliding_filename_stems(tmp_path):
+    raw_dir = tmp_path / "raw"
+    _write_pdf(
+        raw_dir / "text" / "comcare" / "Terms-Conditions.pdf",
+        ["ComCare terms and conditions apply to all applicants."],
+    )
+    _write_pdf(
+        raw_dir / "text" / "elderly" / "Terms-Conditions.pdf",
+        ["Silver Support terms and conditions apply to all applicants."],
+    )
+
+    docs = discover_documents(raw_dir)
+
+    doc_ids = [doc["doc_id"] for doc in docs]
+    assert len(doc_ids) == len(set(doc_ids)), "colliding doc_ids must be disambiguated"
+    assert "Terms-Conditions__comcare" in doc_ids
+    assert "Terms-Conditions__elderly" in doc_ids
+
+
 def test_discover_documents_skips_directories_and_unsupported_suffixes(nested_corpus):
     (nested_corpus / "text" / "elderly" / "notes.txt").write_text("ignore me", encoding="utf-8")
     (nested_corpus / "images" / "empty-subdir").mkdir(parents=True, exist_ok=True)

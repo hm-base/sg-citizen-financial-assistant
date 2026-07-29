@@ -233,7 +233,30 @@ def discover_documents(
                 "thumbnail_path": "",
             })
 
-    return [doc for doc in docs if doc["text"].strip()]
+    docs = [doc for doc in docs if doc["text"].strip()]
+    _disambiguate_doc_ids(docs)
+    return docs
+
+
+def _disambiguate_doc_ids(docs: list[dict]) -> None:
+    """Make doc_id unique in place when two source files share a filename stem.
+
+    Several schemes reuse generic filenames (e.g. "Schemes-Terms-Conditions.pdf")
+    across different folders. doc_id is derived from path.stem alone, so without
+    this pass those documents collide and their chunk_ids collide too, which
+    Chroma's upsert rejects outright. Disambiguation only touches doc_ids that
+    actually collide, so the majority of doc_ids -- and whatever metadata
+    reconciliation already matches them -- are left untouched.
+    """
+    seen: dict[str, list[dict]] = {}
+    for doc in docs:
+        seen.setdefault(doc["doc_id"], []).append(doc)
+    for doc_id, group in seen.items():
+        if len(group) < 2:
+            continue
+        for doc in group:
+            parent = Path(doc["source_file"]).parent.name
+            doc["doc_id"] = f"{doc_id}__{parent}"
 
 
 def section_labels_for_chunks(chunks: list[dict], doc: dict) -> list[str]:
