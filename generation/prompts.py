@@ -12,6 +12,12 @@ Rules:
 3. If the passages do not contain enough information to answer, respond with exactly: \
 "{FALLBACK_MESSAGE}" Do not guess.
 4. Keep answers concise and in plain language suitable for a member of the public.
+5. If the user describes their personal situation and asks what they may qualify for / be \
+eligible for / get: do NOT use the fallback merely because the knowledge base is incomplete \
+for every scheme or every household detail. From the passages, list schemes that appear \
+relevant to the facts they stated; for each, say which stated facts match published criteria \
+and what is unknown. Never say they are approved, will receive, or definitely qualify. Use \
+the fallback only when no passage is relevant to any of their stated facts.
 """
 
 #: Grouping is derived in code from each entry's `conditions`, never taken from the

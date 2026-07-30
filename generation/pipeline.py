@@ -435,11 +435,13 @@ def _attach_diagnostics(
     retrieval_mode: str,
     dropped: int,
     gain: dict | None,
+    retrieved_for_diagnostics: list[dict] | None = None,
 ) -> dict:
+    retrieved = retrieved_for_diagnostics if retrieved_for_diagnostics is not None else result.get("sources", [])
     result["diagnostics"] = {
         "rewrite": rewrite,
         "retrieval": _retrieval_diagnostics(
-            top_k, similarity_threshold, retrieval_mode, result.get("sources", []), dropped
+            top_k, similarity_threshold, retrieval_mode, retrieved, dropped
         ),
         "gain": gain,
     }
@@ -468,10 +470,13 @@ def answer_general_question(
 
     if not results or gate_score < similarity_threshold:
         result = _abstain_result()
+        # Keep retrieval scores in diagnostics even when abstaining so the UI
+        # does not falsely imply "0 candidates were found".
+        retrieved_for_diag = _records_with_scores(rag_index, results) if results else []
     else:
-        retrieved_records = _records_with_scores(rag_index, results)
-        prompt = build_general_qa_prompt(question, retrieved_records)
-        result = _generate_result(prompt, retrieved_records, llm_client)
+        retrieved_for_diag = _records_with_scores(rag_index, results)
+        prompt = build_general_qa_prompt(question, retrieved_for_diag)
+        result = _generate_result(prompt, retrieved_for_diag, llm_client)
 
     return _attach_diagnostics(
         result,
@@ -481,6 +486,7 @@ def answer_general_question(
         retrieval_mode=retrieval_mode,
         dropped=dropped,
         gain=gain,
+        retrieved_for_diagnostics=retrieved_for_diag if result.get("abstained") else None,
     )
 
 

@@ -504,7 +504,9 @@ def build_index_from_documents(
             _chroma_metadata_for_chunk(record, doc_metadata_index, position, chunk_totals[record["doc_id"]])
         )
 
+    print(f"Embedding {len(all_records)} chunks...", flush=True)
     vectors = embed_texts([record["embed_text"] for record in all_records], embedder)
+    print(f"Embedded {len(all_records)} chunks; persisting...", flush=True)
     return all_records, chroma_metadatas, vectors, contextualize_stats
 
 
@@ -603,15 +605,16 @@ if __name__ == "__main__":
             logger.warning("Could not construct an LLM client for contextualization.", exc_info=True)
             return None
 
-    print(f"Using device: {get_device()}")
+    print(f"Using device: {get_device()}", flush=True)
     embedder = load_embedder(config.EMBEDDING_MODEL)
+    print("Discovering documents under data/raw/...", flush=True)
     documents = discover_documents(
         config.DATA_DIR / "raw",
         source_urls=source_urls_from_sources_yaml(config.SOURCES_YAML_PATH),
         video_client=_video_client(),
         transcript_cache_dir=config.DATA_DIR / "processed",
     )
-    print(f"Discovered {len(documents)} documents under data/raw/")
+    print(f"Discovered {len(documents)} documents under data/raw/", flush=True)
 
     doc_metadata_index = load_doc_metadata_index(config.DATA_DIR / "metadata")
     chunk_records, chroma_metadatas, vectors, contextualize_stats = build_index_from_documents(
@@ -637,15 +640,15 @@ if __name__ == "__main__":
         chroma_path=staging_path,
         chroma_collection_name=config.CHROMA_COLLECTION_NAME,
     )
-
     import gc
 
     gc.collect()  # release chromadb's sqlite handle before renaming the directory
     swap_in_new_chroma_index(staging_path, config.CHROMA_PATH)
 
-    print(f"Indexed {len(chunk_records)} chunks into {config.CHROMA_PATH}")
+    print(f"Indexed {len(chunk_records)} chunks into {config.CHROMA_PATH}", flush=True)
     print(
         f"Contextualization: {contextualize_stats['contextualized']} contextualized, "
         f"{contextualize_stats['fell_back']} fell back to raw text"
-        + (" (circuit breaker tripped)" if contextualize_stats["circuit_broken"] else "")
+        + (" (circuit breaker tripped)" if contextualize_stats["circuit_broken"] else ""),
+        flush=True,
     )

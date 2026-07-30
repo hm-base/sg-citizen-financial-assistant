@@ -28,6 +28,7 @@ def test_build_general_qa_prompt_includes_question_and_labeled_passages():
     assert "[Baby Bonus Scheme, Eligibility, p.2]" in prompt
     assert "Parents receive a cash gift" in prompt
     assert "does not contain enough information" in prompt  # abstention instruction present
+    assert "may qualify for" in prompt  # eligibility-list guidance present
 
 
 def test_build_profile_shortlist_prompt_includes_profile_and_allowed_chunk_ids():
