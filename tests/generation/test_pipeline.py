@@ -10,6 +10,8 @@ from generation.pipeline import (
     RagIndex,
     ShortlistFormatError,
     _derive_group,
+    _heuristic_profile_from_question,
+    _question_suggests_personal_situation,
     _resolve_citations,
     _retrieve,
     _rewrite_query,
@@ -43,7 +45,7 @@ class FakeEmbedder:
         "unrelated pet question": np.array([0.0, 1.0], dtype=np.float32),
     }
 
-    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False):
+    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False, **kwargs):
         return np.array([self.VECTORS.get(text.lower(), [0.0, 0.0]) for text in texts], dtype=np.float32)
 
 
@@ -355,7 +357,7 @@ def test_answer_general_question_does_not_rewrite_when_explicitly_disabled():
 
 
 class ThreeChunkEmbedder:
-    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False):
+    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False, **kwargs):
         return np.array([[1.0, 0.0] for _ in texts], dtype=np.float32)
 
 
@@ -714,3 +716,132 @@ def test_resolve_citations_deduplicates_repeated_sources():
 
     assert len(citations) == 1
     assert warnings == []
+
+
+def test_question_suggests_personal_situation_for_bios_not_fact_queries():
+    assert _question_suggests_personal_situation(
+        "I am 40 yo and unemployed; I have a two yo son and care for my mum."
+    )
+    assert not _question_suggests_personal_situation("gst voucher amount")
+    assert not _question_suggests_personal_situation("How much is Baby Bonus?")
+
+
+def test_heuristic_profile_from_question_fills_ticks_from_bio():
+    profile = _heuristic_profile_from_question(
+        "I am 40 yo and unemployed now; I have a two yo son. "
+        "Also, my mum doesn't live with me but I need to care for her; she has dementia."
+    )
+
+    assert profile["age"] == 40
+    assert profile["employment"] == "Unemployed"
+    assert "Has young child(ren)" in profile["life_stage_tags"]
+    assert "Caregiver" in profile["life_stage_tags"]
+
+
+def test_normalize_history_keeps_last_n_turns():
+    from generation.pipeline import _normalize_history
+    import config
+
+    history = [
+        {"role": "user", "content": f"q{i}"} if i % 2 == 0 else {"role": "assistant", "content": f"a{i}"}
+        for i in range(20)
+    ]
+    cleaned = _normalize_history(history)
+    assert len(cleaned) == config.CHAT_HISTORY_MAX_TURNS * 2
+    assert cleaned[0]["content"].startswith("q") or cleaned[0]["content"].startswith("a")
+    assert cleaned[-1]["content"] == "a19"
+
+
+def test_answer_general_question_personal_situation_uses_shortlist_then_answers():
+    rag_index = _build_rag_index()
+    profile_json = json.dumps({
+        "citizenship": "Singapore Citizen",
+        "age": 40,
+        "household_size": 3,
+        "monthly_income_band": None,
+        "housing": "HDB",
+        "employment": "Unemployed",
+        "life_stage_tags": ["Has young child(ren)", "Caregiver"],
+    })
+    llm_client = QueuedLLMClient([
+        profile_json,
+        _rewrite_json("gst voucher amount"),
+        _shortlist_json([{
+            "scheme": "GST Voucher",
+            "reason": "Citizen household may qualify.",
+            "amount": "$850",
+            "conditions": [{"label": "Singapore Citizen", "state": "met"}],
+            "changer": "Higher annual value reduces amount.",
+            "citation_chunk_ids": ["gst-voucher_text_000"],
+        }]),
+    ])
+
+    result = answer_general_question(
+        "I am 40 yo and unemployed; I have a two yo son and care for my mum with dementia.",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert result["abstained"] is False
+    assert "shortlist" in result
+    assert "answer" not in result
+    assert result["diagnostics"]["eligibility_path"] == "shortlist"
+    assert result["inferred_profile"]["employment"] == "Unemployed"
+    assert result["inferred_profile"]["citizenship"] == "Singapore Citizen"
+    assert "Has young child(ren)" in result["inferred_profile"]["life_stage_tags"]
+    assert result["shortlist"][0]["scheme"] == "GST Voucher"
+    assert result["shortlist"][0]["group"] == "eligible"
+
+
+def test_ensure_signal_schemes_adds_skillsfuture_when_llm_omits_it():
+    from generation.pipeline import _ensure_signal_schemes_in_shortlist
+
+    profile = {
+        "employment": "Unemployed",
+        "life_stage_tags": ["Has young child(ren)"],
+    }
+    shortlist = [{
+        "group": "eligible",
+        "scheme": "ComCare Short-to-Medium-Term Assistance",
+        "reason": "Unemployed household may apply.",
+        "amount": None,
+        "conditions": [],
+        "changer": "",
+        "citations": [],
+    }]
+    retrieved = [
+        {
+            "display_name": "ComCare Short-to-Medium-Term Assistance (SMTA) — SupportGoWhere",
+            "scheme_name": "comcare",
+            "chunk_id": "comcare_000",
+            "section_or_page": "p1",
+            "score": 0.9,
+            "text": "ComCare",
+        },
+        {
+            "display_name": "ssg_skillsfuture_credit_amounts",
+            "scheme_name": "SkillsFuture Credit",
+            "chunk_id": "sfc_000",
+            "section_or_page": "p1",
+            "score": 0.8,
+            "text": "SkillsFuture Credit",
+        },
+        {
+            "display_name": "adj_baby_bonus_cda",
+            "scheme_name": "Baby Bonus Scheme",
+            "chunk_id": "bb_000",
+            "section_or_page": "p1",
+            "score": 0.7,
+            "text": "Baby Bonus",
+        },
+    ]
+
+    merged, warnings = _ensure_signal_schemes_in_shortlist(profile, shortlist, retrieved)
+    schemes = {entry["scheme"] for entry in merged}
+    assert "ComCare Short-to-Medium-Term Assistance" in schemes
+    assert any("skillsfuture" in s.lower() or "SkillsFuture" in s for s in schemes)
+    assert any("baby bonus" in s.lower() for s in schemes)
+    assert warnings

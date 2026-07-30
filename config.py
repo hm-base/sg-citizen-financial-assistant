@@ -59,7 +59,12 @@ ENABLE_QUERY_REWRITE = os.getenv("ENABLE_QUERY_REWRITE", "true").lower() == "tru
 # fail-opening to the raw query and making rewriting look broken. 3s keeps a
 # hard ceiling (still fails open past that) while giving a real call room to
 # finish.
-REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "3.0"))
+REWRITE_TIMEOUT_SECONDS = float(os.getenv("REWRITE_TIMEOUT_SECONDS", "15.0"))
+
+# In-session chat: max prior turns sent with each request (user+assistant
+# pairs). Caps prompt size / cost while still resolving follow-ups like
+# "how much is that?". Frontend also caps what it stores in sessionStorage.
+CHAT_HISTORY_MAX_TURNS = int(os.getenv("CHAT_HISTORY_MAX_TURNS", "4"))
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

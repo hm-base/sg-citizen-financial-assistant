@@ -1,6 +1,11 @@
 const state = { mode: "general" };
 
 const THEME_STORAGE_KEY = "sg-financial-assistant-theme";
+const CHAT_HISTORY_STORAGE_KEY = "sg-financial-assistant-chat-history";
+const STICKY_PROFILE_STORAGE_KEY = "sg-financial-assistant-sticky-profile";
+let chatHistoryMaxTurns = 4;
+let chatHistory = [];
+let stickyProfile = null;
 const themeToggleButton = document.getElementById("theme-toggle-button");
 // "midnight-luxury" (dark) and "warm-earth" (light) are the two approved
 // design themes; the button always names the theme a click will switch TO.
@@ -40,6 +45,15 @@ function setMode(mode) {
   state.mode = mode;
   generalPanel.classList.toggle("hidden", mode !== "general");
   profilePanel.classList.toggle("hidden", mode !== "profile");
+  // Clear leftover General Q&A empty-state so Profile mode doesn't look
+  // like it already "failed" before the user clicks Show my shortlist.
+  document.getElementById("answer-empty-state").classList.add("hidden");
+  document.getElementById("answer-abstained-badge").classList.add("hidden");
+  if (mode === "profile") {
+    setResultStatus("Fill in About you, then click Show my shortlist.", null);
+  } else {
+    setResultStatus("Type a question (or pick a Common question), then click Get answer.", null);
+  }
 }
 
 modeButtons.forEach((button) => {
@@ -144,7 +158,8 @@ function renderSampleQuestions(topic) {
     button.textContent = question;
     button.addEventListener("click", () => {
       questionInput.value = question;
-      submitQuery(askButton, "Asking...", "/api/query", { question, ...readControls() });
+      submitQuery(askButton, "Asking...", "/api/query", { question, ...readControls() }, question)
+        .then(() => { questionInput.value = ""; });
     });
     sampleQuestionButtons.appendChild(button);
   });
@@ -222,6 +237,9 @@ async function initConfig() {
       providerIndicator.textContent = `LLM: ${cfg.llm_provider}`;
       providerIndicator.classList.remove("hidden");
     }
+    if (cfg.chat_history_max_turns) {
+      chatHistoryMaxTurns = cfg.chat_history_max_turns;
+    }
     renderStaleIndexBanner(cfg.index_built_at);
   } catch (error) {
     if (!topKInput.value) topKInput.value = OFFLINE_FALLBACK_CONFIG.top_k;
@@ -244,6 +262,133 @@ function readControls() {
     retrieval_mode: modeSelect.value,
     rewrite_query: rewriteCheckbox.checked,
   };
+}
+
+function loadChatSession() {
+  try {
+    const raw = sessionStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+    chatHistory = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(chatHistory)) chatHistory = [];
+  } catch (error) {
+    chatHistory = [];
+  }
+  try {
+    const rawProfile = sessionStorage.getItem(STICKY_PROFILE_STORAGE_KEY);
+    stickyProfile = rawProfile ? JSON.parse(rawProfile) : null;
+  } catch (error) {
+    stickyProfile = null;
+  }
+  trimChatHistory();
+  renderChatThread();
+}
+
+function persistChatSession() {
+  trimChatHistory();
+  sessionStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(chatHistory));
+  if (stickyProfile) {
+    sessionStorage.setItem(STICKY_PROFILE_STORAGE_KEY, JSON.stringify(stickyProfile));
+  } else {
+    sessionStorage.removeItem(STICKY_PROFILE_STORAGE_KEY);
+  }
+  renderChatThread();
+}
+
+function trimChatHistory() {
+  const maxMessages = Math.max(0, chatHistoryMaxTurns * 2);
+  if (maxMessages && chatHistory.length > maxMessages) {
+    chatHistory = chatHistory.slice(-maxMessages);
+  }
+}
+
+function historyForRequest() {
+  // Send prior turns only — the current user message is `question`.
+  return chatHistory.map((turn) => ({
+    role: turn.role,
+    content: turn.content,
+  }));
+}
+
+function summarizeAssistantResult(result) {
+  if (result.abstained) {
+    return "Not enough evidence in the knowledge base for this question.";
+  }
+  if ("shortlist" in result) {
+    const parts = (result.shortlist || [])
+      .map((entry) => {
+        const scheme = (entry.scheme || "").trim();
+        if (!scheme) return null;
+        const group = entry.group || "not_assessed";
+        return entry.amount ? `${scheme} (${group}): ${entry.amount}` : `${scheme} (${group})`;
+      })
+      .filter(Boolean);
+    return parts.length ? `Shortlist: ${parts.join("; ")}` : "Shortlist: (none)";
+  }
+  return String(result.answer || "").trim();
+}
+
+function appendChatTurn(role, content) {
+  const text = String(content || "").trim();
+  if (!text) return;
+  chatHistory.push({ role, content: text });
+  persistChatSession();
+}
+
+function clearChatSession() {
+  chatHistory = [];
+  stickyProfile = null;
+  sessionStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+  sessionStorage.removeItem(STICKY_PROFILE_STORAGE_KEY);
+  renderChatThread();
+  setResultStatus("Chat cleared. Ask a new question when ready.", null);
+}
+
+function renderChatThread() {
+  const thread = document.getElementById("chat-thread");
+  const count = document.getElementById("chat-turn-count");
+  if (!thread || !count) return;
+  thread.innerHTML = "";
+  const pairs = Math.floor(chatHistory.length / 2);
+  const leftover = chatHistory.length % 2;
+  count.textContent = chatHistory.length
+    ? `${pairs} turn${pairs === 1 ? "" : "s"}${leftover ? " · in progress" : ""}`
+    : "No turns yet";
+
+  chatHistory.forEach((turn) => {
+    const bubble = document.createElement("div");
+    bubble.className = `chat-bubble chat-bubble-${turn.role === "user" ? "user" : "assistant"}`;
+    const role = document.createElement("span");
+    role.className = "chat-bubble-role";
+    role.textContent = turn.role === "user" ? "You" : "Assistant";
+    const body = document.createElement("div");
+    body.textContent = turn.content;
+    bubble.appendChild(role);
+    bubble.appendChild(body);
+    thread.appendChild(bubble);
+  });
+  if (chatHistory.length) {
+    thread.scrollTop = thread.scrollHeight;
+  }
+}
+
+function readStickyProfileFromForm() {
+  const employment = document.getElementById("profile-employment").value;
+  if (!employment) return stickyProfile;
+  const tags = Array.from(document.querySelectorAll(".life-stage-tag:checked")).map((el) => el.value);
+  return {
+    citizenship: document.getElementById("profile-citizenship").value,
+    age: parseInt(document.getElementById("profile-age").value, 10) || null,
+    household_size: parseInt(document.getElementById("profile-household-size").value, 10) || null,
+    monthly_income_band: document.getElementById("profile-income-band").value,
+    housing: document.getElementById("profile-housing").value,
+    employment,
+    life_stage_tags: tags,
+  };
+}
+
+function saveStickyProfile(profile) {
+  if (!profile) return;
+  stickyProfile = profile;
+  sessionStorage.setItem(STICKY_PROFILE_STORAGE_KEY, JSON.stringify(stickyProfile));
 }
 
 // Developer-only affordance: rendered inside the Advanced panel, never in the
@@ -292,7 +437,9 @@ function renderResidentCitationNote(droppedCount) {
 // Never rendered anywhere in the resident-facing answer view.
 function renderDiagnostics(diagnostics) {
   const panel = document.getElementById("diagnostics-panel");
-  if (!diagnostics) {
+  // Keep developer diagnostics inside the Advanced band only — never force
+  // them open on every successful answer.
+  if (!diagnostics || advancedBand.classList.contains("hidden")) {
     panel.classList.add("hidden");
     return;
   }
@@ -739,6 +886,11 @@ function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
   if (cursor < answer.length) {
     container.appendChild(document.createTextNode(answer.slice(cursor)));
   }
+  // If citation parsing dropped everything (mismatched labels), still show
+  // the model text so the right-hand panel is never blank after a 200 OK.
+  if (!container.textContent.trim() && answer.trim()) {
+    container.textContent = answer;
+  }
 }
 
 // Scrolls the matching Sources row into view and briefly highlights it, so a
@@ -861,8 +1013,71 @@ function renderResult(result) {
     ? `${docCount} source${docCount === 1 ? "" : "s"} · ${retrievalMode} retrieval`
     : `${docCount} source${docCount === 1 ? "" : "s"}`;
 
+  renderInferredProfileNote(result);
   renderCitationWarning(result);
   renderDiagnostics(result.diagnostics);
+}
+
+function inferredProfileBits(profile) {
+  const bits = [];
+  if (!profile) return bits;
+  if (profile.citizenship) bits.push(profile.citizenship);
+  if (profile.age != null) bits.push(`age ${profile.age}`);
+  if (profile.employment) bits.push(profile.employment);
+  if (profile.housing && profile.housing !== "Prefer not to say") bits.push(profile.housing);
+  (profile.life_stage_tags || []).forEach((tag) => bits.push(tag));
+  return bits;
+}
+
+function applyInferredProfileToForm(profile) {
+  if (!profile) return;
+  const citizenship = document.getElementById("profile-citizenship");
+  const age = document.getElementById("profile-age");
+  const household = document.getElementById("profile-household-size");
+  const income = document.getElementById("profile-income-band");
+  const housing = document.getElementById("profile-housing");
+  const employment = document.getElementById("profile-employment");
+
+  if (profile.citizenship) citizenship.value = profile.citizenship;
+  if (profile.age != null) age.value = String(profile.age);
+  if (profile.household_size != null) household.value = String(profile.household_size);
+  if (profile.monthly_income_band) income.value = profile.monthly_income_band;
+  if (profile.housing) housing.value = profile.housing;
+  if (profile.employment) employment.value = profile.employment;
+
+  const tags = new Set(profile.life_stage_tags || []);
+  document.querySelectorAll(".life-stage-tag").forEach((el) => {
+    el.checked = tags.has(el.value);
+  });
+  saveStickyProfile(profile);
+}
+
+function renderInferredProfileNoteElement(result) {
+  const profile = result.inferred_profile
+    || (result.diagnostics && result.diagnostics.inferred_profile)
+    || null;
+  const path = result.diagnostics && result.diagnostics.eligibility_path;
+  if (!profile || (path !== "shortlist" && path !== "shortlist_abstain")) return null;
+  applyInferredProfileToForm(profile);
+  const bits = inferredProfileBits(profile);
+  if (!bits.length) return null;
+  const note = document.createElement("div");
+  note.className = "answer-citation-note";
+  note.textContent = `Inferred from your question: ${bits.join(" · ")}. Personal eligibility form was filled to match — tweak ticks there and re-run if needed.`;
+  return note;
+}
+
+function renderInferredProfileNote(result) {
+  const note = document.getElementById("inferred-profile-note");
+  if (!note) return;
+  const el = renderInferredProfileNoteElement(result);
+  if (!el || result.abstained) {
+    note.classList.add("hidden");
+    note.textContent = "";
+    return;
+  }
+  note.textContent = el.textContent;
+  note.classList.remove("hidden");
 }
 
 document.getElementById("answer-check-btn").addEventListener("click", () => setMode("profile"));
@@ -1091,17 +1306,39 @@ function renderShortlist(result) {
   generalAnswerView.classList.add("hidden");
   shortlistView.classList.remove("hidden");
 
-  const badge = document.getElementById("answer-abstained-badge");
-  badge.classList.toggle("hidden", !result.abstained);
+  // answer-empty-state sits outside general-answer-view; a prior General Q&A
+  // abstain would leave it visible on top of the shortlist and look like
+  // "no output" even when profile-query succeeded.
+  document.getElementById("answer-empty-state").classList.add("hidden");
+  document.getElementById("answer-abstained-badge").classList.add("hidden");
+  if (!result.abstained) {
+    // Only re-show the badge for true gate abstains; empty shortlists use
+    // the in-panel empty state instead of the General Q&A banner.
+  } else {
+    document.getElementById("answer-abstained-badge").classList.remove("hidden");
+  }
   renderDevWarnings(result.dev_warnings || []);
   renderDiagnostics(result.diagnostics);
 
   shortlistView.innerHTML = "";
-  shortlistView.appendChild(renderShortlistInfoBanner());
 
   const entriesByGroup = { eligible: [], unclear: [], not_assessed: [] };
-  (result.shortlist || []).forEach((entry) => entriesByGroup[entry.group].push(entry));
+  (result.shortlist || []).forEach((entry) => {
+    const group = entriesByGroup[entry.group] ? entry.group : "not_assessed";
+    entriesByGroup[group].push(entry);
+  });
   const totalEntries = (result.shortlist || []).length;
+
+  const heading = document.createElement("h2");
+  heading.className = "panel-title";
+  heading.textContent = totalEntries
+    ? `Your shortlist (${totalEntries})`
+    : "Your shortlist";
+  shortlistView.appendChild(heading);
+  shortlistView.appendChild(renderShortlistInfoBanner());
+
+  const inferredNote = renderInferredProfileNoteElement(result);
+  if (inferredNote) shortlistView.appendChild(inferredNote);
 
   if (!totalEntries) {
     shortlistView.appendChild(renderShortlistEmptyState());
@@ -1220,6 +1457,14 @@ function renderError(debugDetail) {
 }
 
 const answerPanel = document.querySelector(".answer-panel");
+const resultStatus = document.getElementById("result-status");
+
+function setResultStatus(message, kind) {
+  if (!resultStatus) return;
+  resultStatus.textContent = message;
+  resultStatus.classList.remove("is-loading", "is-error", "is-ready");
+  if (kind) resultStatus.classList.add(kind);
+}
 
 // Results render into the right column, which sits below the input form on
 // narrow/short viewports and after switching tabs -- scroll it into view so
@@ -1229,11 +1474,21 @@ function scrollResultIntoView() {
   answerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-async function submitQuery(button, loadingLabel, url, payload) {
+async function submitQuery(button, loadingLabel, url, payload, userTextForHistory) {
   if (button.disabled) return; // double-submit guard
   const originalLabel = button.textContent;
   button.disabled = true;
   button.textContent = loadingLabel;
+  const historyTurns = historyForRequest();
+  const requestPayload = {
+    ...payload,
+    history: historyTurns,
+  };
+  if (url.includes("/api/query") && !requestPayload.sticky_profile) {
+    const sticky = readStickyProfileFromForm() || stickyProfile;
+    if (sticky) requestPayload.sticky_profile = sticky;
+  }
+  setResultStatus(`${loadingLabel} Please wait — first answer can take ~10–30s while the model loads.`, "is-loading");
   try {
     // diagnostics=full doubles retrieval cost, so it is only sent when the
     // Advanced panel's "Show retrieval gain" checkbox is explicitly on.
@@ -1243,7 +1498,7 @@ async function submitQuery(button, loadingLabel, url, payload) {
     const response = await fetch(requestUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     });
     if (!response.ok) {
       let detail = `HTTP ${response.status}`;
@@ -1253,12 +1508,48 @@ async function submitQuery(button, loadingLabel, url, payload) {
       } catch (parseError) {
         // Non-JSON error body; keep the status-code message.
       }
+      setResultStatus(`Request failed: ${detail}`, "is-error");
       renderError(`HTTP ${response.status}: ${detail}`);
       return;
     }
-    renderAnswer(await response.json());
+    const result = await response.json();
+    const userText = userTextForHistory
+      || payload.question
+      || payload.free_text_question
+      || (payload.profile ? `Show shortlist for: ${JSON.stringify(payload.profile)}` : "");
+    if (userText) appendChatTurn("user", userText);
+    appendChatTurn("assistant", summarizeAssistantResult(result));
+    if (result.inferred_profile) saveStickyProfile(result.inferred_profile);
+    else if (payload.profile) saveStickyProfile(payload.profile);
+    renderAnswer(result);
+    if ("shortlist" in result) {
+      const n = (result.shortlist || []).length;
+      setResultStatus(
+        result.abstained
+          ? "Shortlist ready: not enough evidence in the knowledge base for this profile."
+          : `Shortlist ready: ${n} scheme${n === 1 ? "" : "s"} shown below.`,
+        "is-ready"
+      );
+    } else {
+      const chars = (result.answer || "").length;
+      setResultStatus(
+        result.abstained
+          ? "Answer ready: not enough evidence for this question."
+          : `Answer ready (${chars} chars, ${(result.sources || []).length} sources) — see below.`,
+        "is-ready"
+      );
+    }
   } catch (error) {
-    renderError("Network error: could not reach the assistant server.");
+    const message = error && error.message ? error.message : String(error);
+    // Distinguish transport failures from UI-render bugs (previously both
+    // surfaced as a fake "network error", which looked like no output).
+    if (message === "Failed to fetch" || message === "NetworkError when attempting to fetch resource.") {
+      setResultStatus("Network error: could not reach the assistant server.", "is-error");
+      renderError("Network error: could not reach the assistant server.");
+    } else {
+      setResultStatus(`Display error: ${message}`, "is-error");
+      renderError(`Could not display the response: ${message}`);
+    }
   } finally {
     button.disabled = false;
     button.textContent = originalLabel;
@@ -1273,25 +1564,39 @@ document.getElementById("ask-button").addEventListener("click", async (event) =>
   await submitQuery(event.currentTarget, "Asking...", "/api/query", {
     question,
     ...readControls(),
-  });
+  }, question);
+  questionInput.value = "";
 });
 
 document.getElementById("profile-button").addEventListener("click", async (event) => {
   const tags = Array.from(document.querySelectorAll(".life-stage-tag:checked")).map((el) => el.value);
+  const employment = document.getElementById("profile-employment").value;
+  if (!employment) {
+    setResultStatus("Please select an employment status before showing the shortlist.", "is-error");
+    return;
+  }
   const profile = {
     citizenship: document.getElementById("profile-citizenship").value,
     age: parseInt(document.getElementById("profile-age").value, 10) || null,
     household_size: parseInt(document.getElementById("profile-household-size").value, 10) || null,
     monthly_income_band: document.getElementById("profile-income-band").value,
     housing: document.getElementById("profile-housing").value,
-    employment: document.getElementById("profile-employment").value,
+    employment,
     life_stage_tags: tags,
   };
   const free_text_question = document.getElementById("profile-question").value.trim();
+  const userText = free_text_question
+    || `Show my shortlist (${[profile.employment, profile.age != null ? `age ${profile.age}` : null, ...(profile.life_stage_tags || [])].filter(Boolean).join(" · ")})`;
 
   await submitQuery(event.currentTarget, "Finding schemes...", "/api/profile-query", {
     profile,
     free_text_question,
     ...readControls(),
-  });
+  }, userText);
 });
+
+document.getElementById("clear-chat-button").addEventListener("click", () => {
+  clearChatSession();
+});
+
+loadChatSession();

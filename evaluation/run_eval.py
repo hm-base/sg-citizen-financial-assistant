@@ -150,7 +150,7 @@ def save_comparison(comparison: dict, output_dir: Path) -> None:
 
 if __name__ == "__main__":
     import config
-    from backend.main import get_llm_client, get_rag_index
+    from backend.main import get_llm_clients, get_rag_index
 
     test_set = load_test_set(Path(__file__).parent / "test_set.json")
 
@@ -159,7 +159,11 @@ if __name__ == "__main__":
         print(warning)
 
     rag_index = get_rag_index()
-    llm_client = get_llm_client()
+    llm_clients = get_llm_clients()
+    if not llm_clients:
+        raise SystemExit("No LLM provider is configured (all API keys are unset).")
+    llm_client = llm_clients[0]
+    print(f"Using LLM client: {type(llm_client).__name__}")
     comparison = run_comparison(
         test_set, rag_index, llm_client,
         top_k=config.TOP_K, similarity_threshold=config.SIMILARITY_THRESHOLD,

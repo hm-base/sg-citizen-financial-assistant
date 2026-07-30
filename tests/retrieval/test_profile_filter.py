@@ -1,4 +1,8 @@
-from retrieval.profile_filter import infer_preferred_categories, rerank_by_category
+from retrieval.profile_filter import (
+    dedupe_candidates_by_scheme,
+    infer_preferred_categories,
+    rerank_by_category,
+)
 
 
 def test_infer_preferred_categories_maps_senior_age():
@@ -37,6 +41,26 @@ def test_infer_preferred_categories_maps_lower_income_employed():
     assert "Lower-income/employment" not in categories
 
 
+def test_infer_preferred_categories_maps_unemployed():
+    categories = infer_preferred_categories(
+        {"age": 40, "employment": "Unemployed", "monthly_income_band": "Prefer not to say", "life_stage_tags": []}
+    )
+    assert "Lower-income/employment" in categories
+
+    # Unemployed must still map even when caregiver/child tags are also set —
+    # otherwise employment docs lose the preferred-category boost.
+    categories = infer_preferred_categories(
+        {
+            "age": 40,
+            "employment": "Unemployed",
+            "life_stage_tags": ["Has young child(ren)", "Caregiver"],
+        }
+    )
+    assert "Lower-income/employment" in categories
+    assert "Family" in categories
+    assert "Seniors" in categories
+
+
 def test_infer_preferred_categories_maps_pioneer_merdeka_generation_tag():
     categories = infer_preferred_categories({"age": 76, "life_stage_tags": ["Pioneer/Merdeka Generation"]})
     assert "Seniors" in categories
@@ -73,6 +97,60 @@ def test_rerank_by_category_promotes_preferred_categories_without_dropping_other
 
     reranked_indices = [idx for idx, _ in reranked]
     assert reranked_indices == [1, 3]
+
+
+def test_rerank_by_category_round_robins_across_preferred_categories():
+    candidates = [(0, 0.95), (1, 0.94), (2, 0.93), (3, 0.92), (4, 0.91)]
+    chunk_records = [
+        {"category": "Lower-income/employment"},
+        {"category": "Lower-income/employment"},
+        {"category": "Lower-income/employment"},
+        {"category": "Seniors"},
+        {"category": "Family"},
+    ]
+
+    reranked = rerank_by_category(
+        candidates,
+        chunk_records,
+        {"Lower-income/employment", "Seniors", "Family"},
+        top_k=3,
+    )
+
+    assert [idx for idx, _ in reranked] == [0, 3, 4]
+
+
+def test_dedupe_candidates_by_scheme_collapses_comcare_variants():
+    candidates = [(0, 0.9), (1, 0.88), (2, 0.87), (3, 0.86)]
+    chunk_records = [
+        {"display_name": "ComCare Short-to-Medium-Term Assistance (SMTA) — SupportGoWhere", "scheme_name": "a"},
+        {"display_name": "ComCare Interim Assistance — SupportGoWhere", "scheme_name": "b"},
+        {"display_name": "Home Caregiving Grant (HCG) — AIC", "scheme_name": "c"},
+        {"display_name": "Baby Bonus Scheme", "scheme_name": "d"},
+    ]
+
+    deduped = dedupe_candidates_by_scheme(candidates, chunk_records)
+
+    assert [idx for idx, _ in deduped] == [0, 2, 3]
+
+
+def test_rerank_by_category_skips_duplicate_scheme_stems_within_category():
+    candidates = [(0, 0.95), (1, 0.94), (2, 0.93), (3, 0.92)]
+    chunk_records = [
+        {"category": "Lower-income/employment", "display_name": "ComCare SMTA", "scheme_name": "a"},
+        {"category": "Lower-income/employment", "display_name": "ComCare Interim", "scheme_name": "b"},
+        {"category": "Lower-income/employment", "display_name": "SkillsFuture Credit", "scheme_name": "c"},
+        {"category": "Family", "display_name": "Baby Bonus Scheme", "scheme_name": "d"},
+    ]
+
+    reranked = rerank_by_category(
+        candidates,
+        chunk_records,
+        {"Lower-income/employment", "Family"},
+        top_k=3,
+    )
+
+    # ComCare once, then Family, then SkillsFuture — not a second ComCare.
+    assert [idx for idx, _ in reranked] == [0, 3, 2]
 
 
 def test_rerank_by_category_falls_back_when_not_enough_preferred_hits():

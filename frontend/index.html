@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css?v=20260730-ui8" />
   <title>SG Citizen Financial Assistant</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="prototype-banner" data-noprint>
@@ -37,12 +37,12 @@
     <section class="input-panel">
       <div id="general-panel" class="mode-panel">
         <h3 class="panel-title">Ask a question</h3>
-        <p class="panel-caption">Plain language is fine. Answers quote the scheme document they come from.</p>
+        <p class="panel-caption">Plain language is fine. Follow-ups in this tab remember the conversation. Answers quote the scheme document they come from.</p>
         <label for="question-input" class="visually-hidden">Ask a question about subsidies or tax reliefs</label>
         <textarea id="question-input" rows="4" placeholder="e.g. How much CDC Voucher will a household get?"></textarea>
         <div class="ask-row">
           <button id="ask-button" class="primary-btn">Get answer</button>
-          <span class="ask-row-note">Nothing you type is saved.</span>
+          <span class="ask-row-note">Kept in this browser tab only — clear anytime.</span>
         </div>
 
         <div class="sample-questions">
@@ -57,7 +57,7 @@
 
       <div id="profile-panel" class="mode-panel hidden">
         <h3 class="panel-title">About you</h3>
-        <p class="panel-caption">Seven questions. No name, no NRIC, nothing stored.</p>
+        <p class="panel-caption">Seven questions. No name, no NRIC. Conversation stays in this browser tab until you clear it.</p>
 
         <label>Citizenship
           <select id="profile-citizenship">
@@ -72,24 +72,25 @@
         </div>
         <label>Monthly income per person
           <select id="profile-income-band">
+            <option>Prefer not to say</option>
             <option>&lt;$1.5k</option>
             <option>$1.5-3k</option>
             <option>$3-6k</option>
             <option>&gt;$6k</option>
-            <option>Prefer not to say</option>
           </select>
         </label>
         <label>Housing
           <select id="profile-housing">
+            <option>Prefer not to say</option>
             <option>HDB</option>
             <option>Private</option>
             <option>Rental</option>
             <option>Other</option>
-            <option>Prefer not to say</option>
           </select>
         </label>
         <label>Employment
           <select id="profile-employment">
+            <option value="">Select employment</option>
             <option>Employed</option>
             <option>Self-employed</option>
             <option>Unemployed</option>
@@ -118,6 +119,15 @@
     </section>
 
     <section class="answer-panel">
+      <div class="chat-toolbar" data-noprint>
+        <div class="chat-toolbar-copy">
+          <span class="section-eyebrow">Conversation</span>
+          <span id="chat-turn-count" class="chat-turn-count">No turns yet</span>
+        </div>
+        <button id="clear-chat-button" class="answer-action-btn" type="button">Clear chat</button>
+      </div>
+      <div id="chat-thread" class="chat-thread" aria-live="polite"></div>
+      <div id="result-status" class="result-status" aria-live="polite">Ask a question to see the answer here.</div>
       <div id="answer-abstained-badge" class="abstained-badge hidden">Not enough evidence</div>
       <div id="answer-empty-state" class="shortlist-empty-state hidden">
         <p>That is not a decision about you.</p>
@@ -129,9 +139,10 @@
       <div id="general-answer-view">
         <div class="answer-card">
           <div class="answer-card-kicker">
-            <span class="answer-kicker-label">Answer</span>
+            <span class="answer-kicker-label">Latest answer</span>
             <span id="answer-meta" class="answer-meta-mono"></span>
           </div>
+          <div id="inferred-profile-note" class="answer-citation-note hidden"></div>
           <div id="answer-supersession-warning" class="citation-warning hidden">
             <span class="citation-warning-dot"></span>
             <div id="answer-supersession-detail"></div>
@@ -240,6 +251,6 @@
     <div id="source-drawer-excerpt" class="source-drawer-excerpt"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260730-ui8"></script>
 </body>
 </html>

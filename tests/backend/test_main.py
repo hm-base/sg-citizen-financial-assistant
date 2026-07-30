@@ -25,7 +25,7 @@ def _chroma_collection_from(chunk_records: list[dict], vectors: np.ndarray):
 
 
 class FakeEmbedder:
-    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False):
+    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False, **kwargs):
         return np.array([[1.0, 0.0] for _ in texts], dtype=np.float32)
 
 
@@ -69,6 +69,34 @@ def test_api_query_returns_grounded_answer():
     assert "GST Voucher" in body["answer"]
     assert body["sources"][0]["scheme_name"] == "GST Voucher"
     app.dependency_overrides.clear()
+
+
+def test_api_query_accepts_history_and_reports_history_turns():
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient(
+        "You may get up to $850 [GST Voucher, FAQ]."
+    )]
+    client = TestClient(app)
+
+    response = client.post("/api/query", json={
+        "question": "How much is that?",
+        "history": [
+            {"role": "user", "content": "Tell me about GST Voucher"},
+            {"role": "assistant", "content": "GST Voucher gives cash to eligible households."},
+        ],
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["diagnostics"]["history_turns"] == 2
+    app.dependency_overrides.clear()
+
+
+def test_api_config_includes_chat_history_max_turns():
+    client = TestClient(app)
+    response = client.get("/api/config")
+    assert response.status_code == 200
+    assert response.json()["chat_history_max_turns"] >= 1
 
 
 def test_api_profile_query_returns_shortlist():

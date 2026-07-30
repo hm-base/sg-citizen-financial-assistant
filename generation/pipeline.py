@@ -9,6 +9,7 @@ import config
 from config import FALLBACK_MESSAGE
 from generation.prompts import (
     build_general_qa_prompt,
+    build_profile_extract_prompt,
     build_profile_shortlist_prompt,
     build_query_rewrite_prompt,
     extract_cited_scheme_labels,
@@ -17,7 +18,12 @@ from retrieval.bm25_index import search_bm25_index
 from retrieval.chroma_index import search_chroma_index
 from retrieval.embed import embed_texts
 from retrieval.hybrid import reciprocal_rank_fusion
-from retrieval.profile_filter import infer_preferred_categories, rerank_by_category
+from retrieval.profile_filter import (
+    _scheme_stem,
+    dedupe_candidates_by_scheme,
+    infer_preferred_categories,
+    rerank_by_category,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +181,7 @@ def _rewrite_query(
     *,
     enabled: bool,
     profile: dict | None = None,
+    history: list[dict] | None = None,
     timeout_seconds: float | None = None,
 ) -> dict:
     """Structured query rewrite: expands colloquialisms/abbreviations into scheme
@@ -194,7 +201,7 @@ def _rewrite_query(
     else:
         start = time.perf_counter()
         try:
-            prompt = build_query_rewrite_prompt(stripped, profile)
+            prompt = build_query_rewrite_prompt(stripped, profile, history=history)
             budget = config.REWRITE_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
             raw = _run_with_timeout(lambda: llm_client.generate(prompt), budget)
             parsed = _parse_rewrite_json(raw)
@@ -213,6 +220,45 @@ def _rewrite_query(
     if redacted:
         result["ops"] = [{"kind": "dropped", "detail": "removed NRIC/FIN-like identifier"}] + result["ops"]
     return result
+
+
+def _normalize_history(history: list[dict] | None) -> list[dict]:
+    """Keep the last N valid user/assistant turns for prompts and rewrite."""
+    if not history:
+        return []
+    cleaned: list[dict] = []
+    for turn in history:
+        if not isinstance(turn, dict):
+            continue
+        role = str(turn.get("role") or "").strip().lower()
+        content = str(turn.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        cleaned.append({"role": role, "content": content})
+    max_messages = max(0, config.CHAT_HISTORY_MAX_TURNS * 2)
+    if max_messages and len(cleaned) > max_messages:
+        cleaned = cleaned[-max_messages:]
+    return cleaned
+
+
+def _assistant_history_summary(result: dict) -> str:
+    """Compact assistant turn for storing in chat history (client may also do this)."""
+    if result.get("abstained"):
+        return config.FALLBACK_MESSAGE
+    if "shortlist" in result:
+        parts = []
+        for entry in result.get("shortlist") or []:
+            scheme = (entry.get("scheme") or "").strip()
+            if not scheme:
+                continue
+            group = entry.get("group") or "not_assessed"
+            amount = entry.get("amount")
+            bit = f"{scheme} ({group})"
+            if amount:
+                bit += f": {amount}"
+            parts.append(bit)
+        return "Shortlist: " + "; ".join(parts) if parts else "Shortlist: (none)"
+    return str(result.get("answer") or "").strip()
 
 
 def _retrieve_fanout(
@@ -448,7 +494,264 @@ def _attach_diagnostics(
     return result
 
 
-def answer_general_question(
+_ALLOWED_CITIZENSHIP = {"Singapore Citizen", "PR", "Other"}
+_ALLOWED_INCOME = {"<$1.5k", "$1.5-3k", "$3-6k", ">$6k", "Prefer not to say"}
+_ALLOWED_HOUSING = {"HDB", "Private", "Rental", "Other", "Prefer not to say"}
+_ALLOWED_EMPLOYMENT = {
+    "Employed", "Self-employed", "Unemployed", "Retired", "Student", "Platform worker"
+}
+_ALLOWED_LIFE_STAGE_TAGS = {
+    "Has young child(ren)",
+    "Caregiver",
+    "Senior (65+)",
+    "Pioneer/Merdeka Generation",
+    "I have a disability",
+    "PWD in household",
+    "Own more than 1 property",
+}
+_PERSONAL_SITUATION_MARKERS = (
+    r"\bi am\b",
+    r"\bi'm\b",
+    r"\bi have\b",
+    r"\bmy\b",
+    r"\byo\b",
+    r"\by/?o\b",
+    r"\byear[s]?[- ]?old\b",
+    r"\bage\b",
+    r"unemployed",
+    r"employed",
+    r"retrenched",
+    r"jobless",
+    r"\bchild\b",
+    r"\bson\b",
+    r"\bdaughter\b",
+    r"\bbaby\b",
+    r"caregiver",
+    r"care for",
+    r"dementia",
+    r"qualif",
+    r"eligible",
+    r"what can i",
+    r"what do i",
+    r"\bhdb\b",
+    r"\bwife\b",
+    r"\bhusband\b",
+    r"\bmum\b",
+    r"\bmom\b",
+    r"\bmother\b",
+)
+
+
+def _situation_seed_queries(question: str) -> list[str]:
+    """Lightweight multi-facet seeds for free-text 'about me' questions.
+
+    Dense retrieval otherwise latches onto one dramatic facet (e.g. dementia
+    caregiving) and drops others (young child, unemployment) from the top-k
+    that reach the answer prompt.
+    """
+    text = question.lower()
+    seeds: list[str] = []
+    if any(token in text for token in ("child", "son", "daughter", "baby", "toddler", "yo ")):
+        seeds.append(
+            "Baby Bonus Scheme Child Development Account cash gift co-matching eligibility Singapore Citizen"
+        )
+    if any(token in text for token in ("unemployed", "retrenched", "jobless", "looking for work", "between jobs")):
+        seeds.append(
+            "Workfare Income Supplement Career Conversion Programme SkillsFuture support for unemployed mid-career Singaporean"
+        )
+        seeds.append("ComCare financial assistance short-to-medium term for unemployed household Singapore")
+    if any(token in text for token in ("caregiver", "care for", "dementia", "mum", "mom", "mother", "father", "parent")):
+        seeds.append(
+            "Home Caregiving Grant caregiver support for elderly parent dementia Singapore"
+        )
+    return seeds
+
+
+def _question_suggests_personal_situation(question: str) -> bool:
+    """True when free text looks like a bio / eligibility ask, not a scheme fact Q."""
+    text = question.lower()
+    hits = sum(1 for pattern in _PERSONAL_SITUATION_MARKERS if re.search(pattern, text))
+    return hits >= 2
+
+
+def _empty_profile() -> dict:
+    return {
+        "citizenship": None,
+        "age": None,
+        "household_size": None,
+        "monthly_income_band": None,
+        "housing": None,
+        "employment": None,
+        "life_stage_tags": [],
+    }
+
+
+def _normalize_profile(raw: dict) -> dict:
+    profile = _empty_profile()
+    citizenship = raw.get("citizenship")
+    if citizenship in _ALLOWED_CITIZENSHIP:
+        profile["citizenship"] = citizenship
+
+    age = raw.get("age")
+    if isinstance(age, bool):
+        age = None
+    if isinstance(age, (int, float)) and 0 <= int(age) <= 120:
+        profile["age"] = int(age)
+    elif isinstance(age, str) and age.strip().isdigit():
+        age_int = int(age.strip())
+        if 0 <= age_int <= 120:
+            profile["age"] = age_int
+
+    household = raw.get("household_size")
+    if isinstance(household, bool):
+        household = None
+    if isinstance(household, (int, float)) and 1 <= int(household) <= 20:
+        profile["household_size"] = int(household)
+
+    income = raw.get("monthly_income_band")
+    if income in _ALLOWED_INCOME:
+        profile["monthly_income_band"] = income
+
+    housing = raw.get("housing")
+    if housing in _ALLOWED_HOUSING:
+        profile["housing"] = housing
+
+    employment = raw.get("employment")
+    if employment in _ALLOWED_EMPLOYMENT:
+        profile["employment"] = employment
+
+    tags = []
+    for tag in raw.get("life_stage_tags") or []:
+        if tag in _ALLOWED_LIFE_STAGE_TAGS and tag not in tags:
+            tags.append(tag)
+    if profile["age"] is not None and profile["age"] >= 65 and "Senior (65+)" not in tags:
+        tags.append("Senior (65+)")
+    profile["life_stage_tags"] = tags
+    return profile
+
+
+def _heuristic_profile_from_question(question: str) -> dict:
+    """Rule-based fallback when profile-extract LLM fails or returns little."""
+    text = question.lower()
+    profile = _empty_profile()
+
+    if "singapore citizen" in text or "singaporean" in text:
+        profile["citizenship"] = "Singapore Citizen"
+    elif re.search(r"\bpr\b|permanent resident", text):
+        profile["citizenship"] = "PR"
+
+    age_match = re.search(r"\b(\d{1,3})\s*(?:yo|y/?o|years?\s*old)\b", text)
+    if not age_match:
+        age_match = re.search(r"\bage\s*(?:is|:)?\s*(\d{1,3})\b", text)
+    if age_match:
+        age = int(age_match.group(1))
+        if 0 <= age <= 120:
+            profile["age"] = age
+
+    if any(token in text for token in ("unemployed", "retrenched", "jobless", "looking for work", "between jobs")):
+        profile["employment"] = "Unemployed"
+    elif "retired" in text:
+        profile["employment"] = "Retired"
+    elif "self-employed" in text or "self employed" in text:
+        profile["employment"] = "Self-employed"
+    elif re.search(r"\bi(?:'m| am)\s+employed\b", text):
+        profile["employment"] = "Employed"
+
+    if "hdb" in text:
+        profile["housing"] = "HDB"
+
+    tags: list[str] = []
+    if any(token in text for token in ("child", "son", "daughter", "baby", "toddler")):
+        tags.append("Has young child(ren)")
+    if any(token in text for token in ("caregiver", "care for", "dementia", "caring for")):
+        tags.append("Caregiver")
+    if profile["age"] is not None and profile["age"] >= 65:
+        tags.append("Senior (65+)")
+    if re.search(r"\bi have a disability\b|\bmy disability\b", text):
+        tags.append("I have a disability")
+    elif re.search(r"\bpwd\b|disability", text):
+        tags.append("PWD in household")
+    if "pioneer" in text or "merdeka" in text:
+        tags.append("Pioneer/Merdeka Generation")
+    profile["life_stage_tags"] = list(dict.fromkeys(tags))
+    return profile
+
+
+def _merge_profiles(primary: dict, fallback: dict) -> dict:
+    """Fill nulls from fallback; union life-stage tags."""
+    merged = _normalize_profile(primary)
+    for key in ("citizenship", "age", "household_size", "monthly_income_band", "housing", "employment"):
+        if merged.get(key) in (None, "", "Prefer not to say") and fallback.get(key) not in (None, ""):
+            merged[key] = fallback[key]
+    tags = list(dict.fromkeys([*(merged.get("life_stage_tags") or []), *(fallback.get("life_stage_tags") or [])]))
+    merged["life_stage_tags"] = [t for t in tags if t in _ALLOWED_LIFE_STAGE_TAGS]
+    return merged
+
+
+def _profile_has_signal(profile: dict) -> bool:
+    if profile.get("age") is not None:
+        return True
+    if profile.get("employment"):
+        return True
+    if profile.get("life_stage_tags"):
+        return True
+    if profile.get("housing") not in (None, "", "Prefer not to say"):
+        return True
+    if profile.get("monthly_income_band") not in (None, "", "Prefer not to say"):
+        return True
+    if profile.get("household_size") is not None:
+        return True
+    return False
+
+
+def _parse_profile_json(raw_text: str) -> dict:
+    parsed = json.loads(_strip_code_fence(raw_text))
+    if not isinstance(parsed, dict):
+        raise ValueError("Profile extract response must be a JSON object")
+    return _normalize_profile(parsed)
+
+
+def _infer_profile_from_question(
+    question: str,
+    llm_client,
+    history: list[dict] | None = None,
+) -> dict:
+    """Infer form-like profile bands from free text (LLM, with heuristic fill-in)."""
+    heuristic = _heuristic_profile_from_question(question)
+    # Also fold heuristics from prior user turns so follow-ups keep age/employment.
+    for turn in history or []:
+        if turn.get("role") == "user":
+            heuristic = _merge_profiles(heuristic, _heuristic_profile_from_question(turn["content"]))
+    try:
+        prompt = build_profile_extract_prompt(question, history=history)
+        raw = _run_with_timeout(lambda: llm_client.generate(prompt), config.REWRITE_TIMEOUT_SECONDS)
+        parsed = _parse_profile_json(raw)
+        return _merge_profiles(parsed, heuristic)
+    except Exception:  # noqa: BLE001 - extraction must fail open to heuristic
+        return heuristic
+
+
+def _apply_form_defaults(profile: dict) -> dict:
+    """Match Personal eligibility form defaults for unspecified optional bands.
+
+    The form always sends citizenship / income / housing (defaults: Singapore
+    Citizen, Prefer not to say, Prefer not to say). Leaving those null in an
+    inferred profile changes shortlist condition checks vs the structured path.
+    Do NOT default employment — the form's Employed default would mis-label
+    unemployed bios.
+    """
+    out = dict(profile)
+    if not out.get("citizenship"):
+        out["citizenship"] = "Singapore Citizen"
+    if not out.get("monthly_income_band"):
+        out["monthly_income_band"] = "Prefer not to say"
+    if not out.get("housing"):
+        out["housing"] = "Prefer not to say"
+    out["life_stage_tags"] = list(out.get("life_stage_tags") or [])
+    return out
+
+
+def _answer_general_question_classic(
     question: str,
     rag_index: RagIndex,
     llm_client,
@@ -458,12 +761,31 @@ def answer_general_question(
     retrieval_mode: str,
     rewrite_query: bool = True,
     diagnostics_full: bool = False,
+    history: list[dict] | None = None,
 ) -> dict:
-    rewrite = _rewrite_query(question, llm_client, enabled=rewrite_query)
-    queries = [rewrite["rewritten"], *rewrite["subQueries"]]
-    results, gate_score, dropped = _retrieve_fanout(queries, rag_index, top_k, retrieval_mode)
+    history = _normalize_history(history)
+    rewrite = _rewrite_query(
+        question, llm_client, enabled=rewrite_query, history=history
+    )
+    seeds = _situation_seed_queries(question)
+    queries = [rewrite["rewritten"], *rewrite["subQueries"], *seeds]
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        key = (query or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(key)
+    # Pull a wider pool when the question names several life situations, so
+    # one facet cannot occupy every top-k slot before the LLM answers.
+    retrieve_k = max(top_k, top_k + len(seeds) * 2, 8 if seeds else top_k)
+    keep_k = top_k if not seeds else max(top_k, 8)
+    merged, gate_score, _dropped_pre = _retrieve_fanout(deduped, rag_index, retrieve_k, retrieval_mode)
+    results = merged[:keep_k]
+    dropped = max(0, len(merged) - len(results))
     gain = (
-        _compute_gain(question, rewrite, rag_index, top_k, similarity_threshold, retrieval_mode)
+        _compute_gain(question, rewrite, rag_index, retrieve_k, similarity_threshold, retrieval_mode)
         if diagnostics_full
         else None
     )
@@ -475,10 +797,10 @@ def answer_general_question(
         retrieved_for_diag = _records_with_scores(rag_index, results) if results else []
     else:
         retrieved_for_diag = _records_with_scores(rag_index, results)
-        prompt = build_general_qa_prompt(question, retrieved_for_diag)
+        prompt = build_general_qa_prompt(question, retrieved_for_diag, history=history)
         result = _generate_result(prompt, retrieved_for_diag, llm_client)
 
-    return _attach_diagnostics(
+    attached = _attach_diagnostics(
         result,
         rewrite=rewrite,
         top_k=top_k,
@@ -488,6 +810,213 @@ def answer_general_question(
         gain=gain,
         retrieved_for_diagnostics=retrieved_for_diag if result.get("abstained") else None,
     )
+    attached.setdefault("diagnostics", {})
+    attached["diagnostics"]["history_turns"] = len(history)
+    return attached
+
+
+def answer_general_question(
+    question: str,
+    rag_index: RagIndex,
+    llm_client,
+    *,
+    top_k: int,
+    similarity_threshold: float,
+    retrieval_mode: str,
+    rewrite_query: bool = True,
+    diagnostics_full: bool = False,
+    history: list[dict] | None = None,
+    sticky_profile: dict | None = None,
+) -> dict:
+    """General Q&A.
+
+    Personal-situation free text shares the Personal eligibility shortlist
+    brain and returns the same shortlist payload (no second prose rewrite that
+    drops schemes). Pure scheme fact questions keep classic retrieve → answer.
+    Optional history resolves follow-ups; sticky_profile carries form/inferred
+    bands across turns.
+    """
+    history = _normalize_history(history)
+    classic_kwargs = {
+        "top_k": top_k,
+        "similarity_threshold": similarity_threshold,
+        "retrieval_mode": retrieval_mode,
+        "rewrite_query": rewrite_query,
+        "diagnostics_full": diagnostics_full,
+        "history": history,
+    }
+
+    # Follow-ups after a shortlist ("how much is SkillsFuture?") should use
+    # classic grounded Q&A with history, not re-run a full shortlist unless
+    # the new message itself looks like a personal bio / eligibility ask.
+    if not _question_suggests_personal_situation(question):
+        return _answer_general_question_classic(question, rag_index, llm_client, **classic_kwargs)
+
+    inferred = _infer_profile_from_question(question, llm_client, history=history)
+    if sticky_profile:
+        # Form / sticky bands win when set; inferred fills gaps (and history).
+        profile = _apply_form_defaults(
+            _merge_profiles(_normalize_profile(sticky_profile), inferred)
+        )
+    else:
+        profile = _apply_form_defaults(inferred)
+
+    if not _profile_has_signal(profile):
+        result = _answer_general_question_classic(question, rag_index, llm_client, **classic_kwargs)
+        result["diagnostics"]["inferred_profile"] = profile
+        result["diagnostics"]["eligibility_path"] = "classic_no_profile_signal"
+        return result
+
+    try:
+        # Same resident-facing shortlist as Personal eligibility with the same
+        # ticks and a blank optional question — do not pass the raw bio into
+        # the shortlist prompt (that reintroduced freeform/structured drift).
+        shortlist_result = answer_profile_question(
+            profile,
+            rag_index,
+            llm_client,
+            free_text_question="",
+            history=history,
+            **{k: v for k, v in classic_kwargs.items() if k != "history"},
+        )
+    except ShortlistFormatError:
+        result = _answer_general_question_classic(question, rag_index, llm_client, **classic_kwargs)
+        result["diagnostics"]["inferred_profile"] = profile
+        result["diagnostics"]["eligibility_path"] = "classic_shortlist_format_error"
+        result["inferred_profile"] = profile
+        return result
+
+    # Same resident-facing payload as Personal eligibility shortlist — do not
+    # re-ask the LLM to turn the shortlist into prose (that dropped schemes).
+    shortlist_result["inferred_profile"] = profile
+    shortlist_result.setdefault("diagnostics", {})
+    shortlist_result["diagnostics"]["inferred_profile"] = profile
+    shortlist_result["diagnostics"]["eligibility_path"] = (
+        "shortlist_abstain" if shortlist_result.get("abstained") else "shortlist"
+    )
+    shortlist_result["diagnostics"]["history_turns"] = len(history)
+    if shortlist_result.get("shortlist"):
+        shortlist_result["diagnostics"]["shortlist_summary"] = [
+            {"scheme": entry.get("scheme"), "group": entry.get("group")}
+            for entry in shortlist_result["shortlist"]
+        ]
+    return shortlist_result
+
+
+def _shortlist_fallback_from_sources(retrieved_records: list[dict]) -> list[dict]:
+    """When the LLM returns [], still surface retrieved schemes as not_assessed.
+
+    An empty shortlist with non-empty retrieval is usually a generation miss
+    (timeout, over-cautious abstention), not "nothing in the corpus matched".
+    Showing the retrieved scheme names with not_assessed conditions keeps the
+    resident-facing result honest about what the index found.
+    """
+    fallback: list[dict] = []
+    seen: set[str] = set()
+    for record in retrieved_records:
+        scheme = (record.get("display_name") or record.get("scheme_name") or "").strip()
+        if not scheme or scheme in seen:
+            continue
+        seen.add(scheme)
+        fallback.append({
+            "group": "not_assessed",
+            "scheme": scheme,
+            "reason": (
+                "This scheme appeared in retrieved documents for your profile, "
+                "but the assistant could not finish a condition-by-condition check."
+            ),
+            "amount": None,
+            "conditions": [],
+            "changer": "Ask again, or open the cited source for the published criteria.",
+            "citations": [{
+                "doc_label": scheme,
+                "section": record.get("section_or_page") or "",
+                "chunk_id": record.get("chunk_id"),
+                "score": record.get("score"),
+                "text": record.get("text") or "",
+            }],
+        })
+    return fallback
+
+
+def _required_scheme_stems_for_profile(profile: dict) -> set[str]:
+    """Scheme stems the shortlist must cover when the index retrieved them.
+
+    Stops freeform vs structured (and LLM variance) from dropping a whole
+    profile facet — e.g. Unemployed without SkillsFuture — when the chunk
+    was already in the evidence set.
+    """
+    stems: set[str] = set()
+    tags = profile.get("life_stage_tags") or []
+    if profile.get("employment") == "Unemployed":
+        stems.update({"skillsfuture", "career conversion", "comcare", "workfare"})
+    elif profile.get("employment") == "Employed" and profile.get("monthly_income_band") in (
+        "<$1.5k",
+        "$1.5-3k",
+    ):
+        stems.update({"workfare", "skillsfuture"})
+    if "Has young child(ren)" in tags:
+        stems.add("baby bonus")
+    if "Caregiver" in tags:
+        stems.add("home caregiving grant")
+    return stems
+
+
+def _friendly_scheme_name(record: dict) -> str:
+    scheme = (record.get("scheme_name") or "").strip()
+    display = (record.get("display_name") or "").strip()
+    # Prefer a human scheme_name (e.g. "SkillsFuture Credit") over file-like
+    # display ids (e.g. "ssg_skillsfuture_credit_amounts").
+    raw = scheme if scheme and (" " in scheme or scheme[:1].isupper()) else (display or scheme)
+    if not raw:
+        return ""
+    return re.split(r"[—\-–|]", raw, maxsplit=1)[0].strip() or raw
+
+
+def _ensure_signal_schemes_in_shortlist(
+    profile: dict,
+    shortlist: list[dict],
+    retrieved_records: list[dict],
+) -> tuple[list[dict], list[str]]:
+    """Append retrieved profile-signal schemes the LLM omitted."""
+    required = _required_scheme_stems_for_profile(profile)
+    if not required or not retrieved_records:
+        return shortlist, []
+
+    present = {_scheme_stem({"display_name": entry.get("scheme", "")}) for entry in shortlist}
+    by_stem: dict[str, dict] = {}
+    for record in retrieved_records:
+        stem = _scheme_stem(record)
+        if stem in required and stem not in present and stem not in by_stem:
+            by_stem[stem] = record
+
+    warnings: list[str] = []
+    if not by_stem:
+        return shortlist, warnings
+
+    merged = list(shortlist)
+    for stem, record in by_stem.items():
+        scheme = _friendly_scheme_name(record)
+        merged.append({
+            "group": "not_assessed",
+            "scheme": scheme,
+            "reason": (
+                "Retrieved for your profile signals, but the model did not finish "
+                "a full condition check on this scheme."
+            ),
+            "amount": None,
+            "conditions": [],
+            "changer": "Open the cited source, or re-run with more profile detail.",
+            "citations": [{
+                "doc_label": scheme,
+                "section": record.get("section_or_page") or "",
+                "chunk_id": record.get("chunk_id"),
+                "score": record.get("score"),
+                "text": record.get("text") or "",
+            }],
+        })
+        warnings.append(f"Added retrieved signal scheme omitted by model: {scheme} ({stem})")
+    return merged, warnings
 
 
 def answer_profile_question(
@@ -501,21 +1030,98 @@ def answer_profile_question(
     retrieval_mode: str,
     rewrite_query: bool = True,
     diagnostics_full: bool = False,
+    history: list[dict] | None = None,
 ) -> dict:
-    query = free_text_question or (
-        f"Singapore subsidy eligibility and payout amounts for profile: {profile}"
+    history = _normalize_history(history)
+    # Always retrieve against a profile-wide eligibility query so optional
+    # free-text (e.g. a dementia caregiving story) cannot crowd out other
+    # facets already present in the structured profile (young child, HDB, …).
+    # Rewrite from the profile bands only — not free-text — so General Q&A
+    # (inferred profile) and Personal eligibility (same ticks) share one
+    # retrieval fanout. Free-text still informs the shortlist prompt below.
+    # History helps rewrite resolve follow-ups when free_text is present.
+    profile_query = f"Singapore subsidy eligibility and payout amounts for profile: {profile}"
+    free_text = (free_text_question or "").strip()
+    rewrite = _rewrite_query(
+        profile_query if not free_text else free_text,
+        llm_client,
+        enabled=rewrite_query,
+        profile=profile,
+        history=history if free_text else None,
     )
-    # The optional free-text question is rewritten with the profile in scope,
-    # so e.g. "help with my mother's medical bills" resolves as a
-    # caregiver/eldercare-scoped query rather than a generic one.
-    rewrite = _rewrite_query(query, llm_client, enabled=rewrite_query, profile=profile)
-    queries = [rewrite["rewritten"], *rewrite["subQueries"]]
-    candidate_pool_size = max(top_k * 3, 15)
+    # Seed queries from structured life-stage tags / employment so optional
+    # free-text about one facet (e.g. dementia caregiving) cannot monopolise
+    # dense retrieval and drop unemployment or child-support schemes.
+    tag_seeds: list[str] = []
+    tags = profile.get("life_stage_tags") or []
+    if "Has young child(ren)" in tags:
+        tag_seeds.append(
+            "Baby Bonus Scheme Child Development Account cash gift co-matching eligibility Singapore Citizen"
+        )
+    if "Caregiver" in tags:
+        tag_seeds.append(
+            "Home Caregiving Grant caregiver support for elderly parent dementia Singapore"
+        )
+    if "I have a disability" in tags or "PWD in household" in tags:
+        tag_seeds.append("disability support CareShield Life PioneerDAS eligibility Singapore")
+    if profile.get("employment") == "Unemployed":
+        tag_seeds.append(
+            "ComCare Short-to-Medium Term Assistance financial help for unemployed household Singapore"
+        )
+        tag_seeds.append(
+            "SkillsFuture Credit SkillsFuture Career Transition Programme mid-career Singaporean"
+        )
+        tag_seeds.append(
+            "SkillsFuture Career Conversion Programme mid-career switch unemployed Singaporean jobseeker"
+        )
+        tag_seeds.append(
+            "Workfare Skills Support lower-wage workers employment assistance Singapore"
+        )
+    queries = [profile_query, rewrite["rewritten"], *rewrite["subQueries"], *tag_seeds]
+    # Optional free-text is an extra retrieval hint only (e.g. "gst voucher
+    # amount"). It must not drive the rewrite, or freeform vs structured with
+    # the same ticks diverge. Leave blank for the shared personal-situation path.
+    if free_text:
+        queries.append(free_text)
+    # Deduplicate while preserving order — fanout is cheap relative to a
+    # missed Baby Bonus / caregiver scheme.
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        key = query.strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(key)
+    queries = deduped
+    # Multi-facet profiles (unemployed + child + caregiver, …) need a wider
+    # shortlist window: default top_k=5 is easily filled by one category.
+    facet_count = sum(
+        1
+        for flag in (
+            "Has young child(ren)" in tags,
+            "Caregiver" in tags,
+            "I have a disability" in tags or "PWD in household" in tags,
+            profile.get("employment") == "Unemployed",
+            profile.get("housing") == "HDB",
+            profile.get("age") is not None and profile["age"] >= 65,
+        )
+        if flag
+    )
+    effective_top_k = max(top_k, min(2 * facet_count + 1, 10)) if facet_count >= 2 else top_k
+    candidate_pool_size = max(effective_top_k * 4, 20)
     candidates, gate_score, dropped = _retrieve_fanout(
         queries, rag_index, candidate_pool_size, retrieval_mode
     )
     gain = (
-        _compute_gain(query, rewrite, rag_index, candidate_pool_size, similarity_threshold, retrieval_mode)
+        _compute_gain(
+            profile_query,
+            rewrite,
+            rag_index,
+            candidate_pool_size,
+            similarity_threshold,
+            retrieval_mode,
+        )
         if diagnostics_full
         else None
     )
@@ -524,12 +1130,17 @@ def answer_profile_question(
         result = _abstain_shortlist_result()
     else:
         preferred_categories = infer_preferred_categories(profile)
-        reranked = rerank_by_category(candidates, rag_index.chunk_records, preferred_categories, top_k)
+        deduped_candidates = dedupe_candidates_by_scheme(candidates, rag_index.chunk_records)
+        reranked = rerank_by_category(
+            deduped_candidates, rag_index.chunk_records, preferred_categories, effective_top_k
+        )
 
         retrieved_records = _records_with_scores(rag_index, reranked)
         chunk_by_id = {record["chunk_id"]: record for record in retrieved_records}
 
-        prompt = build_profile_shortlist_prompt(profile, retrieved_records, free_text_question)
+        prompt = build_profile_shortlist_prompt(
+            profile, retrieved_records, free_text, history=history
+        )
         raw_entries = _generate_shortlist_entries(prompt, llm_client)
 
         shortlist = []
@@ -548,6 +1159,18 @@ def answer_profile_question(
                 "citations": citations,
             })
 
+        if not shortlist:
+            shortlist = _shortlist_fallback_from_sources(retrieved_records)
+            if shortlist:
+                dev_warnings.append(
+                    "Model returned an empty shortlist; surfaced retrieved schemes as not_assessed."
+                )
+
+        shortlist, ensure_warnings = _ensure_signal_schemes_in_shortlist(
+            profile, shortlist, retrieved_records
+        )
+        dev_warnings.extend(ensure_warnings)
+
         result = {
             "abstained": False,
             "shortlist": shortlist,
@@ -555,12 +1178,15 @@ def answer_profile_question(
             "dev_warnings": dev_warnings,
         }
 
-    return _attach_diagnostics(
+    attached = _attach_diagnostics(
         result,
         rewrite=rewrite,
-        top_k=top_k,
+        top_k=effective_top_k,
         similarity_threshold=similarity_threshold,
         retrieval_mode=retrieval_mode,
         dropped=dropped,
         gain=gain,
     )
+    attached.setdefault("diagnostics", {})
+    attached["diagnostics"]["history_turns"] = len(history)
+    return attached

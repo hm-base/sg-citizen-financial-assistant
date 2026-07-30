@@ -31,7 +31,7 @@ def _chroma_collection_from(chunk_records: list[dict], vectors: np.ndarray):
 
 
 class FakeEmbedder:
-    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False):
+    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False, **kwargs):
         return np.array([[1.0, 0.0] for _ in texts], dtype=np.float32)
 
 

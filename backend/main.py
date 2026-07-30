@@ -114,8 +114,15 @@ def _override(requested, default):
     return default if requested is None else requested
 
 
+class ChatTurn(BaseModel):
+    role: str
+    content: str
+
+
 class QueryRequest(BaseModel):
     question: str
+    history: list[ChatTurn] | None = None
+    sticky_profile: dict | None = None
     top_k: int | None = None
     similarity_threshold: float | None = None
     retrieval_mode: str | None = None
@@ -125,10 +132,17 @@ class QueryRequest(BaseModel):
 class ProfileQueryRequest(BaseModel):
     profile: dict
     free_text_question: str = ""
+    history: list[ChatTurn] | None = None
     top_k: int | None = None
     similarity_threshold: float | None = None
     retrieval_mode: str | None = None
     rewrite_query: bool | None = None
+
+
+def _history_payload(turns: list[ChatTurn] | None) -> list[dict] | None:
+    if not turns:
+        return None
+    return [{"role": turn.role, "content": turn.content} for turn in turns]
 
 
 @app.post("/api/query")
@@ -149,6 +163,8 @@ def query(
             retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
             rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
             diagnostics_full=diagnostics == "full",
+            history=_history_payload(request.history),
+            sticky_profile=request.sticky_profile,
         )
     except LLM_PROVIDER_ERRORS:
         raise HTTPException(status_code=503, detail=LLM_PROVIDER_ERROR_DETAIL)
@@ -173,6 +189,7 @@ def profile_query(
             retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
             rewrite_query=_override(request.rewrite_query, config.ENABLE_QUERY_REWRITE),
             diagnostics_full=diagnostics == "full",
+            history=_history_payload(request.history),
         )
     except ShortlistFormatError:
         raise HTTPException(
@@ -211,6 +228,7 @@ def get_config():
         "llm_provider": config.LLM_PROVIDER,
         "rewrite_query": config.ENABLE_QUERY_REWRITE,
         "index_built_at": index_built_at,
+        "chat_history_max_turns": config.CHAT_HISTORY_MAX_TURNS,
     }
 
 
