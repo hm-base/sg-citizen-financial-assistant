@@ -7,8 +7,6 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-FAISS_INDEX_PATH = DATA_DIR / "faiss" / "index.faiss"
-FAISS_METADATA_PATH = DATA_DIR / "faiss" / "metadata.jsonl"
 # Chroma persists its own on-disk state under this directory; metadata.jsonl
 # (chunk_records, used for BM25 + display) still lives alongside it rather
 # than inside Chroma, since it's also the source the backend/evaluation code

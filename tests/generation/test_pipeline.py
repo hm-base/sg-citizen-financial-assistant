@@ -173,6 +173,43 @@ def test_answer_general_question_abstains_after_one_rewrite_call_when_rewrite_en
     assert len(llm_client.prompts) == 1
 
 
+def test_answer_general_question_accepts_a_citation_using_display_name():
+    """Regression test: the prompt now labels passages with display_name
+    (falling back to scheme_name) for nicer citations, e.g. "ComCare SMTA
+    -- SupportGoWhere" instead of the title-cased scheme_name. The citation
+    gate must recognise that label as grounded, not flag every answer as
+    citing an unretrieved source."""
+    chunk_records = [
+        {
+            "chunk_id": "gst-voucher_text_000",
+            "scheme_name": "Gst Voucher Gstv Cash Supportgowhere",
+            "display_name": "GST Voucher (GSTV) — Cash — SupportGoWhere",
+            "category": "Household",
+            "section_or_page": "FAQ",
+            "text": "GST Voucher gives eligible households up to $850 in cash.",
+        },
+    ]
+    vectors = np.array([[1.0, 0.0]], dtype=np.float32)
+    rag_index = RagIndex(
+        chroma_collection=_chroma_collection_from(chunk_records, vectors),
+        bm25_index=build_bm25_index([record["text"] for record in chunk_records]),
+        chunk_records=chunk_records,
+        embedder=FakeEmbedder(),
+    )
+    llm_client = FakeLLMClient("You may get up to $850 [GST Voucher (GSTV) — Cash — SupportGoWhere, FAQ].")
+
+    result = answer_general_question(
+        "gst voucher amount",
+        rag_index,
+        llm_client,
+        top_k=3,
+        similarity_threshold=0.3,
+        retrieval_mode="dense",
+    )
+
+    assert result["citation_warning"] == []
+
+
 def test_answer_general_question_flags_citation_not_in_retrieved_sources():
     rag_index = _build_rag_index()
     llm_client = FakeLLMClient("You may get funds [Made Up Scheme, Nowhere].")

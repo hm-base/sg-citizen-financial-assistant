@@ -1,6 +1,8 @@
+import hashlib
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import CHUNK_OVERLAP_WORDS, CHUNK_SIZE_WORDS
@@ -18,6 +20,13 @@ logger = logging.getLogger(__name__)
 TEXT_SUFFIXES = (".pdf", ".html", ".htm", ".md", ".markdown")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 VIDEO_SUFFIXES = (".mp4",)
+
+#: Marks a .md stub authored as a placeholder pointer to a video file whose
+#: transcript hasn't been produced yet (see data/raw/text/*/*_video_*.md).
+#: Indexing these as real documents would let a government scheme be "cited"
+#: by a chunk whose entire content is "transcript coming soon" -- worse than
+#: not citing anything.
+_UNPRODUCED_TRANSCRIPT_MARKER = "Transcript will be produced at index time"
 
 #: Maps a folder name under data/raw/<modality>/ to a profile-filter category.
 #: Categories must match the values used by retrieval.profile_filter, otherwise
@@ -185,6 +194,9 @@ def discover_documents(
         except Exception:  # noqa: BLE001 - one unreadable file must not abort the build
             logger.warning("Skipping unreadable text document: %s", path, exc_info=True)
             continue
+        if _UNPRODUCED_TRANSCRIPT_MARKER in text:
+            logger.info("Skipping unproduced video-transcript placeholder: %s", path)
+            continue
         docs.append({
             "text": text,
             "page_texts": page_texts,
@@ -266,16 +278,46 @@ def _disambiguate_doc_ids(docs: list[dict]) -> None:
     Chroma's upsert rejects outright. Disambiguation only touches doc_ids that
     actually collide, so the majority of doc_ids -- and whatever metadata
     reconciliation already matches them -- are left untouched.
+
+    A single parent-folder suffix isn't always enough: some same-stem files
+    also share a parent *folder name* across different modality subtrees
+    (e.g. text/AIAP/x.md and video/AIAP/x.mp4, both under a folder literally
+    named "AIAP"). Escalates in stages -- parent folder, then + modality,
+    then a hash of the full source path (unique by construction) -- checking
+    after each stage and only touching whatever still collides, so a
+    same-parent-and-modality pair (e.g. x.pdf and x.md dropped in one folder)
+    still resolves instead of raising.
     """
-    seen: dict[str, list[dict]] = {}
-    for doc in docs:
-        seen.setdefault(doc["doc_id"], []).append(doc)
-    for doc_id, group in seen.items():
-        if len(group) < 2:
-            continue
+    original_ids = {id(doc): doc["doc_id"] for doc in docs}
+
+    def _colliding_groups(key):
+        seen: dict[str, list[dict]] = {}
+        for doc in docs:
+            seen.setdefault(key(doc), []).append(doc)
+        return [group for group in seen.values() if len(group) > 1]
+
+    for group in _colliding_groups(lambda d: original_ids[id(d)]):
         for doc in group:
+            base = original_ids[id(doc)]
             parent = Path(doc["source_file"]).parent.name
-            doc["doc_id"] = f"{doc_id}__{parent}"
+            doc["doc_id"] = f"{base}__{parent}"
+
+    for group in _colliding_groups(lambda d: d["doc_id"]):
+        for doc in group:
+            base = original_ids[id(doc)]
+            parent = Path(doc["source_file"]).parent.name
+            doc["doc_id"] = f"{base}__{parent}__{doc['modality']}"
+
+    for group in _colliding_groups(lambda d: d["doc_id"]):
+        for doc in group:
+            base = original_ids[id(doc)]
+            digest = hashlib.sha1(doc["source_file"].encode("utf-8")).hexdigest()[:8]
+            doc["doc_id"] = f"{base}__{digest}"
+
+    remaining = _colliding_groups(lambda d: d["doc_id"])
+    if remaining:
+        colliding_ids = sorted({doc["doc_id"] for group in remaining for doc in group})
+        raise ValueError(f"doc_id collisions could not be resolved: {colliding_ids}")
 
 
 def section_labels_for_chunks(chunks: list[dict], doc: dict) -> list[str]:
@@ -313,6 +355,15 @@ def load_doc_metadata_index(metadata_dir: Path) -> dict[str, dict]:
     data/metadata/*.json (both individual per-document files and combined
     arrays like metadata_hm_base.json).
 
+    Several doc_ids are defined in more than one sidecar file (a thin,
+    early-authored entry and a later richer one with citation-contract
+    fields). Rather than letting whichever file glob-sorts last silently
+    replace the other -- which could as easily discard the richer entry as
+    the thin one -- entries for the same doc_id are merged, with the entry
+    that has more fields treated as the base and the other only filling in
+    keys it's missing. Every such conflict is logged so shadowing is visible
+    instead of silent.
+
     Known gap: a document whose doc_id (the raw filename stem, from
     discover_documents) doesn't match the doc_id used when its metadata file
     was authored simply gets no entry here and falls back to the minimal
@@ -324,9 +375,17 @@ def load_doc_metadata_index(metadata_dir: Path) -> dict[str, dict]:
     if not metadata_dir.exists():
         return index
     for path in sorted(metadata_dir.glob("*.json")):
+        if "template" in path.stem.lower():
+            # Contributor scaffolding (e.g. metadata_template.json), not real
+            # metadata -- it's full of "hdb_REPLACE_ME"/"REPLACE WITH THE URL
+            # YOU LANDED ON" placeholder rows. Any real doc_id in it (kept as
+            # a worked example) is expected to also exist in a real file.
+            logger.info("Skipping metadata template file %s", path)
+            continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Skipping unparseable metadata file %s: %s", path, exc)
             continue
         entries = data if isinstance(data, list) else [data]
         for entry in entries:
@@ -342,7 +401,19 @@ def load_doc_metadata_index(metadata_dir: Path) -> dict[str, dict]:
                     for key, value in entry.items()
                     if isinstance(value, (str, int, float, bool))
                 }
-            index[doc_id] = flat
+            existing = index.get(doc_id)
+            if existing is None:
+                index[doc_id] = flat
+            elif existing == flat:
+                pass  # identical duplicate, not a real conflict
+            else:
+                base, fill_in = (existing, flat) if len(existing) >= len(flat) else (flat, existing)
+                logger.info(
+                    "doc_id %r defined in more than one metadata file under %s; "
+                    "merging (%d-field entry as base, %d-field entry fills gaps)",
+                    doc_id, metadata_dir, len(base), len(fill_in),
+                )
+                index[doc_id] = {**fill_in, **base}
     return index
 
 
@@ -432,7 +503,7 @@ def build_index_from_documents(
             _chroma_metadata_for_chunk(record, doc_metadata_index, position, chunk_totals[record["doc_id"]])
         )
 
-    vectors = embed_texts([record["text"] for record in all_records], embedder)
+    vectors = embed_texts([record["embed_text"] for record in all_records], embedder)
     return all_records, chroma_metadatas, vectors, contextualize_stats
 
 
@@ -445,20 +516,35 @@ def persist_index(
     chroma_path: Path,
     chroma_collection_name: str,
 ) -> None:
+    # metadata.jsonl is written before the Chroma upsert so a crash between
+    # the two steps always leaves Chroma with fewer chunks than metadata.jsonl
+    # describes -- a state get_rag_index's count check (RagIndex.__post_init__)
+    # can detect cleanly -- rather than the reverse (Chroma holding chunk_ids
+    # metadata.jsonl doesn't know about, which search_chroma_index can only
+    # drop silently at query time).
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(metadata_path, "w", encoding="utf-8") as handle:
+        for record in chunk_records:
+            handle.write(json.dumps(record) + "\n")
+
     client = get_chroma_client(chroma_path)
     collection = build_chroma_collection(client, chroma_collection_name)
     upsert_chunks(
         collection,
         [record["chunk_id"] for record in chunk_records],
         vectors,
-        documents=[record["text"] for record in chunk_records],
+        documents=[record["embed_text"] for record in chunk_records],
         metadatas=chroma_metadatas,
     )
 
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(metadata_path, "w", encoding="utf-8") as handle:
-        for record in chunk_records:
-            handle.write(json.dumps(record) + "\n")
+    # A real timestamp, not metadata.jsonl's mtime -- a git checkout, file
+    # copy, or Drive resync all reset mtime without rebuilding anything, which
+    # would make the frontend's stale-index banner lie in either direction.
+    build_info_path = metadata_path.parent / "build_info.json"
+    build_info_path.write_text(
+        json.dumps({"built_at": datetime.now(timezone.utc).isoformat()}),
+        encoding="utf-8",
+    )
 
 
 def load_metadata(metadata_path: Path) -> list[dict]:

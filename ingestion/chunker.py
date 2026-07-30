@@ -5,7 +5,14 @@ def split_into_sections(text: str) -> list[str]:
     """Split on blank-line paragraph/heading boundaries. Every word in `text`
     ends up in exactly one section, in order -- callers rely on this to
     derive word offsets by cumulative counting rather than re-locating each
-    section's text in the original string."""
+    section's text in the original string.
+
+    The structure-awareness this enables is entirely blank-line-dependent: a
+    document that only uses single newlines between paragraphs/headings (no
+    blank line) is one giant "section," which chunk_text_structured then
+    hands to the oversized-paragraph fallback (chunk_text's fixed word-count
+    splitting) for the whole document, silently losing paragraph boundaries.
+    """
     parts = re.split(r"\n\s*\n+", text.strip())
     return [part.strip() for part in parts if part.strip()]
 

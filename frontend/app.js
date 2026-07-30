@@ -586,8 +586,13 @@ function renderSourceEntry(doc, list, showScore) {
     );
     actionsRow.appendChild(showBtn);
 
+    // These URLs come from data/metadata/*.json sidecars synced in from an
+    // external Google Drive folder, not from this codebase -- textContent
+    // protects every other rendered field, but href is a navigation sink, so
+    // a malformed or malicious scheme (e.g. "javascript:") must be rejected
+    // here rather than trusted.
     const originalUrl = source.canonical_url || source.source_url;
-    if (originalUrl) {
+    if (originalUrl && /^https?:\/\//i.test(originalUrl)) {
       const originalLink = document.createElement("a");
       originalLink.className = "source-show-btn";
       originalLink.href = originalUrl;
@@ -737,9 +742,16 @@ function renderAnswerTextWithCitations(answer, sourcesByKey, docIndex) {
 }
 
 // Scrolls the matching Sources row into view and briefly highlights it, so a
-// resident clicking "[1]" can see which row it points to (§4).
+// resident clicking "[1]" can see which row it points to (§4). A marker for
+// source 4+ points at a row that isn't in the DOM yet while the Sources list
+// is still collapsed to SOURCES_COLLAPSED_COUNT -- expand it first so the
+// click always lands somewhere, instead of doing nothing.
 function scrollToAndHighlightSourceRow(number) {
-  const row = document.getElementById(`source-row-${number}`);
+  let row = document.getElementById(`source-row-${number}`);
+  if (!row && !sourcesExpandBtn.classList.contains("hidden")) {
+    sourcesExpandBtn.click();
+    row = document.getElementById(`source-row-${number}`);
+  }
   if (!row) return;
   row.scrollIntoView({ behavior: "smooth", block: "center" });
   row.classList.add("source-entry-highlight");
@@ -811,7 +823,9 @@ function renderResult(result) {
 
   const sources = result.sources || [];
   const sourcesByKey = new Map();
-  sources.forEach((source) => sourcesByKey.set(`${source.scheme_name} ${source.section_or_page}`, source));
+  sources.forEach((source) =>
+    sourcesByKey.set(`${source.display_name || source.scheme_name} ${source.section_or_page}`, source)
+  );
 
   // First pass: walk the citations purely to populate docIndex (the DOM this
   // builds gets discarded by the second pass below, once doc.number is

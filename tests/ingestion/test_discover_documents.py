@@ -5,6 +5,7 @@ from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
 
 from ingestion.build_index import (
+    _disambiguate_doc_ids,
     _display_name,
     _scheme_name,
     build_index_from_documents,
@@ -76,6 +77,84 @@ def test_discover_documents_disambiguates_colliding_filename_stems(tmp_path):
     assert len(doc_ids) == len(set(doc_ids)), "colliding doc_ids must be disambiguated"
     assert "Terms-Conditions__comcare" in doc_ids
     assert "Terms-Conditions__elderly" in doc_ids
+
+
+def test_disambiguate_doc_ids_escalates_to_modality_when_parent_folder_name_also_matches():
+    """Regression test: two files with the same stem AND the same parent
+    *folder name* (but under different modality subtrees, e.g. text/AIAP/
+    and video/AIAP/) used to get the identical parent-only suffix and still
+    collide, corrupting the shared doc_id's chunk position/total counters."""
+    docs = [
+        {
+            "doc_id": "aisg_aiap_video_86q_VISXpzM",
+            "source_file": "data/raw/text/AIAP/aisg_aiap_video_86q_VISXpzM.md",
+            "modality": "text",
+        },
+        {
+            "doc_id": "aisg_aiap_video_86q_VISXpzM",
+            "source_file": "data/raw/video/AIAP/aisg_aiap_video_86q_VISXpzM.mp4",
+            "modality": "video",
+        },
+    ]
+
+    _disambiguate_doc_ids(docs)
+
+    doc_ids = [doc["doc_id"] for doc in docs]
+    assert len(doc_ids) == len(set(doc_ids))
+    assert "aisg_aiap_video_86q_VISXpzM__AIAP__text" in doc_ids
+    assert "aisg_aiap_video_86q_VISXpzM__AIAP__video" in doc_ids
+
+
+def test_disambiguate_doc_ids_falls_back_to_a_path_hash_when_modality_also_matches():
+    """Regression test: two files with the same stem, same parent folder,
+    AND same modality (e.g. a .pdf and its .md transcription dropped in one
+    folder) used to still collide after the modality suffix, which Chroma's
+    upsert rejects -- but only after embedding the whole batch with BGE-M3."""
+    docs = [
+        {
+            "doc_id": "scheme-page",
+            "source_file": "data/raw/text/comcare/scheme-page.pdf",
+            "modality": "text",
+        },
+        {
+            "doc_id": "scheme-page",
+            "source_file": "data/raw/text/comcare/scheme-page.md",
+            "modality": "text",
+        },
+    ]
+
+    _disambiguate_doc_ids(docs)
+
+    doc_ids = [doc["doc_id"] for doc in docs]
+    assert len(doc_ids) == len(set(doc_ids))
+    assert all(doc_id.startswith("scheme-page__") for doc_id in doc_ids)
+
+
+def test_discover_documents_skips_unproduced_video_transcript_placeholders(tmp_path):
+    """Regression test: a .md stub authored as a placeholder pointer to an
+    untranscribed video (real content in this corpus: 9 such files) was
+    indexed as a real document, so a scheme could be "cited" by a chunk
+    whose entire content is "transcript coming soon"."""
+    raw_dir = tmp_path / "raw"
+    stub = raw_dir / "text" / "AIAP" / "aisg_aiap_video_86q_VISXpzM.md"
+    stub.parent.mkdir(parents=True, exist_ok=True)
+    stub.write_text(
+        "---\ndoc_id: \"aisg_aiap_video_86q_VISXpzM\"\n---\n\n"
+        "# AIAP YouTube\n\n"
+        "This source is a **video**.\n\n"
+        "Transcript will be produced at index time via Gemini (`modality: video`).",
+        encoding="utf-8",
+    )
+    _write_pdf(
+        raw_dir / "text" / "AIAP" / "aisg_aiap_apprenticeship.pdf",
+        ["AI Apprenticeship Programme gives stipends to trainees."],
+    )
+
+    docs = discover_documents(raw_dir)
+
+    doc_ids = {doc["doc_id"] for doc in docs}
+    assert "aisg_aiap_video_86q_VISXpzM" not in doc_ids
+    assert "aisg_aiap_apprenticeship" in doc_ids
 
 
 def test_discover_documents_skips_underscore_prefixed_archive_folders(tmp_path):

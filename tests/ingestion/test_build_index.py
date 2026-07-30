@@ -65,7 +65,10 @@ def test_build_index_from_documents_uses_contextualize_client_when_given():
 
     assert stats["contextualized"] == len(chunk_records)
     assert stats["fell_back"] == 0
-    assert all(record["text"].startswith("Context sentence.") for record in chunk_records)
+    assert all(record["embed_text"].startswith("Context sentence.") for record in chunk_records)
+    # The displayed/prompted text must stay the original chunk text, never
+    # the LLM-written context sentence.
+    assert all(not record["text"].startswith("Context sentence.") for record in chunk_records)
 
 
 def test_load_doc_metadata_index_reads_individual_and_combined_files(tmp_path):
@@ -103,6 +106,72 @@ def test_load_doc_metadata_index_returns_empty_for_missing_directory(tmp_path):
     assert load_doc_metadata_index(tmp_path / "does-not-exist") == {}
 
 
+def test_load_doc_metadata_index_merges_conflicting_entries_preferring_the_richer_one(tmp_path):
+    """Regression test: a thin, alphabetically-later file used to silently
+    replace a richer, earlier-processed entry for the same doc_id, discarding
+    citation-contract fields the richer file existed to add."""
+    (tmp_path / "aaa_thin.json").write_text(
+        json.dumps({"doc_id": "cpf_wis_scheme_page", "agency": "CPF", "tier": "A"}),
+        encoding="utf-8",
+    )
+    (tmp_path / "zzz_rich.json").write_text(
+        json.dumps({
+            "doc_id": "cpf_wis_scheme_page",
+            "agency": "CPF",
+            "tier": "A",
+            "citation": "CPF Board — Workfare Income Supplement",
+            "canonical_url": "https://www.cpf.gov.sg/wis",
+            "authority_rank": 1,
+        }),
+        encoding="utf-8",
+    )
+
+    index = load_doc_metadata_index(tmp_path)
+
+    entry = index["cpf_wis_scheme_page"]
+    assert entry["citation"] == "CPF Board — Workfare Income Supplement"
+    assert entry["canonical_url"] == "https://www.cpf.gov.sg/wis"
+    assert entry["authority_rank"] == 1
+
+
+def test_load_doc_metadata_index_skips_template_files(tmp_path):
+    """Regression test: metadata_template.json is contributor scaffolding
+    full of "*_REPLACE_ME" placeholder doc_ids and a placeholder source_url
+    -- it must never be ingested as real metadata."""
+    (tmp_path / "metadata_template.json").write_text(
+        json.dumps([
+            {
+                "doc_id": "hdb_REPLACE_ME",
+                "source_url": "REPLACE WITH THE URL YOU LANDED ON",
+                "agency": "HDB",
+            }
+        ]),
+        encoding="utf-8",
+    )
+    (tmp_path / "real.json").write_text(
+        json.dumps({"doc_id": "hdb_ehg_families", "agency": "HDB", "tier": "A"}),
+        encoding="utf-8",
+    )
+
+    index = load_doc_metadata_index(tmp_path)
+
+    assert "hdb_REPLACE_ME" not in index
+    assert index["hdb_ehg_families"]["agency"] == "HDB"
+
+
+def test_load_doc_metadata_index_warns_on_malformed_file_and_keeps_other_files(tmp_path, caplog):
+    (tmp_path / "broken.json").write_text('{"doc_id": "oops,', encoding="utf-8")
+    (tmp_path / "good.json").write_text(
+        json.dumps({"doc_id": "cpf_wis_scheme_page", "agency": "CPF"}), encoding="utf-8"
+    )
+
+    with caplog.at_level("WARNING"):
+        index = load_doc_metadata_index(tmp_path)
+
+    assert index == {"cpf_wis_scheme_page": {"doc_id": "cpf_wis_scheme_page", "agency": "CPF"}}
+    assert any("broken.json" in record.message for record in caplog.records)
+
+
 def test_persist_index_and_load_metadata_roundtrip(tmp_path):
     embedder = load_embedder("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
     documents = [_document(doc_id="silver-support", repeat_text="Silver Support gives quarterly payouts. ")]
@@ -126,3 +195,6 @@ def test_persist_index_and_load_metadata_roundtrip(tmp_path):
     client = get_chroma_client(chroma_path)
     collection = get_or_create_chroma_collection(client, "test-collection")
     assert collection.count() == len(chunk_records)
+
+    build_info = json.loads((metadata_path.parent / "build_info.json").read_text(encoding="utf-8"))
+    assert "built_at" in build_info

@@ -204,6 +204,40 @@ def test_api_config_returns_defaults():
     assert "rewrite_query" in body
 
 
+def test_api_config_prefers_build_info_json_over_metadata_mtime(tmp_path, monkeypatch):
+    """Regression test: index_built_at used to be metadata.jsonl's mtime,
+    which a git checkout, file copy, or Drive resync resets without
+    anything having actually been rebuilt -- making the stale-index banner
+    lie. build_info.json (written by ingestion.build_index) is authoritative
+    when present."""
+    metadata_path = tmp_path / "chroma" / "metadata.jsonl"
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text("", encoding="utf-8")
+    (metadata_path.parent / "build_info.json").write_text(
+        '{"built_at": "2026-01-01T00:00:00+00:00"}', encoding="utf-8"
+    )
+    monkeypatch.setattr(backend.main.config, "CHROMA_METADATA_PATH", metadata_path)
+
+    client = TestClient(app)
+    response = client.get("/api/config")
+
+    assert response.json()["index_built_at"] == "2026-01-01T00:00:00+00:00"
+
+
+def test_api_config_falls_back_to_mtime_when_build_info_json_is_absent(tmp_path, monkeypatch):
+    """An index built before build_info.json existed must still report a
+    timestamp, not None."""
+    metadata_path = tmp_path / "chroma" / "metadata.jsonl"
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(backend.main.config, "CHROMA_METADATA_PATH", metadata_path)
+
+    client = TestClient(app)
+    response = client.get("/api/config")
+
+    assert response.json()["index_built_at"] is not None
+
+
 def _fake_low_similarity_rag_index():
     """Index whose only chunk sits at cosine 0.3 — below the 0.35 default gate."""
     chunk_records = [{

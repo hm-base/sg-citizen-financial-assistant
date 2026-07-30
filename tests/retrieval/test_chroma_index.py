@@ -79,6 +79,32 @@ def test_build_chroma_collection_clears_stale_chunks_from_a_previous_build(tmp_p
     assert second.count() == 0
 
 
+def test_search_chroma_index_warns_and_drops_a_chunk_id_missing_from_the_index_map(tmp_path, caplog):
+    """Regression test: if metadata.jsonl and the Chroma collection ever
+    drift out of sync (e.g. a crash mid-persist), a hit whose chunk_id has no
+    entry in chunk_id_to_index used to be dropped with zero visibility --
+    silently degrading into an unexplained abstention somewhere upstream."""
+    client = get_chroma_client(tmp_path / "chroma")
+    collection = build_chroma_collection(client, "test-collection")
+    upsert_chunks(
+        collection,
+        CHUNK_IDS[:2],
+        np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+        documents=["a", "b"],
+        metadatas=[{"doc_id": "a"}, {"doc_id": "b"}],
+    )
+    # chunk_id_to_index only knows about "doc-a_text_000" -- "doc-b_text_000"
+    # stands in for a chunk present in Chroma but absent from chunk_records.
+    incomplete_index_map = {"doc-a_text_000": 0}
+    query = np.array([[1.0, 0.0]], dtype=np.float32)
+
+    with caplog.at_level("WARNING"):
+        results = search_chroma_index(collection, query, top_k=2, chunk_id_to_index=incomplete_index_map)
+
+    assert results == [(0, 1.0)]
+    assert any("doc-b_text_000" in record.message for record in caplog.records)
+
+
 def test_get_or_create_chroma_collection_persists_across_client_instances(tmp_path):
     path = tmp_path / "chroma"
     client_a = get_chroma_client(path)

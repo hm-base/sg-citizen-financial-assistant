@@ -18,7 +18,8 @@ def build_context_prompt(chunk_text: str, doc_metadata: dict) -> str:
 
 
 def contextualize_chunk(chunk_text: str, doc_metadata: dict, llm_client) -> str:
-    """Prepend a short LLM-generated context sentence to `chunk_text`.
+    """Build the LLM-generated context sentence, prepended to `chunk_text`,
+    for use as this chunk's `embed_text` -- never as its displayed `text`.
 
     Raises on failure -- the caller (contextualize_chunks) implements the
     fail-open/circuit-breaker policy, so this stays a plain, testable call
@@ -37,8 +38,9 @@ def contextualize_chunks(
     enabled: bool = True,
     circuit_breaker_threshold: int = 5,
 ) -> tuple[list[dict], dict]:
-    """Prepend context to each chunk's text (returns new dicts; does not
-    mutate the input list or its records).
+    """Prepend context to each chunk's `embed_text` (returns new dicts; does
+    not mutate the input list or its records). `text` -- the field prompts
+    are grounded in and residents see quoted -- is never touched here.
 
     Fails open per chunk: a single bad call falls back to that chunk's raw
     text rather than aborting the run. Trips a circuit breaker after
@@ -72,9 +74,15 @@ def contextualize_chunks(
             continue
 
         doc_metadata = doc_metadata_by_id.get(record["doc_id"], {})
+        # doc_metadata is document-level (agency/tier/citation/...) and never
+        # has a "section" key -- the chunk's own position within its
+        # document lives on the chunk record as section_or_page. Without
+        # this, build_context_prompt's "Section:" line was always blank,
+        # losing the clearest signal for where a chunk sits in its source.
+        prompt_metadata = {**doc_metadata, "section": record.get("section_or_page", "")}
         try:
-            new_text = contextualize_chunk(record["text"], doc_metadata, llm_client)
-            output.append({**record, "text": new_text})
+            new_embed_text = contextualize_chunk(record["text"], prompt_metadata, llm_client)
+            output.append({**record, "embed_text": new_embed_text})
             contextualized_count += 1
             consecutive_failures = 0
         except Exception:  # noqa: BLE001 - any contextualization failure must fail open, never abort the run

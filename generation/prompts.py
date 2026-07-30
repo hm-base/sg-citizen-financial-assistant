@@ -54,7 +54,8 @@ a chunk id that is not in that list.
 def _format_passages(retrieved: list[dict]) -> str:
     lines = []
     for chunk in retrieved:
-        label = f"[{chunk['scheme_name']}, {chunk['section_or_page']}]"
+        name = chunk.get("display_name") or chunk["scheme_name"]
+        label = f"[{name}, {chunk['section_or_page']}]"
         lines.append(f"{label}\n{chunk['text']}")
     return "\n\n".join(lines)
 
@@ -62,7 +63,8 @@ def _format_passages(retrieved: list[dict]) -> str:
 def _format_passages_with_chunk_ids(retrieved: list[dict]) -> str:
     lines = []
     for chunk in retrieved:
-        label = f"[chunk_id: {chunk['chunk_id']} | {chunk['scheme_name']}, {chunk['section_or_page']}]"
+        name = chunk.get("display_name") or chunk["scheme_name"]
+        label = f"[chunk_id: {chunk['chunk_id']} | {name}, {chunk['section_or_page']}]"
         lines.append(f"{label}\n{chunk['text']}")
     return "\n\n".join(lines)
 

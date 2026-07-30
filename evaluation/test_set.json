@@ -1,14 +1,11 @@
 {
-  "_note": "Hand-labelled 2026-07-30 against the real Chroma index (data/chroma/metadata.jsonl, 1818 chunks / 394 docs) built from the full Drive-synced corpus. F2, P1, and P2 are left with empty expected_relevant_chunk_ids on purpose: the corpus contains only two IRAS docs (iras_cpf_cash_topup_relief_html, iras_pdf_cpf_cash_topup_relief), both specific to CPF Cash Top-up Relief -- there is no general personal-income-tax-reliefs overview document covering the $80,000 cap, Parent Relief, or Working Mother's Child Relief. Those three questions should currently trigger (correctly) a low-evidence or abstained answer, not a retrieval hit; treat any non-abstaining answer to them as a false positive worth investigating, not a retrieval bug. F1's CDC_image_000 chunk states voucher amounts but not the hawker/heartland-merchant spend locations named in its criteria -- also a content gap, not a labeling gap.",
+  "_note": "Hand-labelled 2026-07-30 against the real Chroma index (data/chroma/metadata.jsonl, 1818 chunks / 394 docs) built from the full Drive-synced corpus. F2, P1, and P2 are left with empty expected_relevant_chunk_ids on purpose: the corpus contains only two IRAS docs (iras_cpf_cash_topup_relief_html, iras_pdf_cpf_cash_topup_relief), both specific to CPF Cash Top-up Relief -- there is no general personal-income-tax-reliefs overview document covering the $80,000 cap, Parent Relief, or Working Mother's Child Relief. Those three questions should currently trigger (correctly) a low-evidence or abstained answer, not a retrieval hit; treat any non-abstaining answer to them as a false positive worth investigating, not a retrieval bug. F1's CDC_image_000 chunk states voucher amounts but not the hawker/heartland-merchant spend locations named in its criteria -- also a content gap, not a labeling gap. The original expected_source_doc_ids field (placeholder doc_ids from the original spec, e.g. \"cdc-vouchers\", \"iras-tax-reliefs\") has been dropped: nothing in run_eval.py ever consumed it, and every value was stale against the real corpus's actual doc_ids -- expected_relevant_chunk_ids above is the only ground truth that matters.",
   "questions": [
     {
       "id": "F1",
       "category": "factual",
       "question": "How much does each eligible Singaporean household get from CDC Vouchers, and where can they be spent?",
       "expected_answer_criteria": "States the voucher value per household and that they can be spent at participating hawkers/heartland merchants/supermarkets.",
-      "expected_source_doc_ids": [
-        "cdc-vouchers"
-      ],
       "expected_relevant_chunk_ids": [
         "CDC_image_000"
       ]
@@ -18,9 +15,6 @@
       "category": "factual",
       "question": "What is the maximum claimable cap for total personal income tax reliefs?",
       "expected_answer_criteria": "States the $80,000 overall personal income tax relief cap.",
-      "expected_source_doc_ids": [
-        "iras-tax-reliefs"
-      ],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -28,9 +22,6 @@
       "category": "factual",
       "question": "What is the Silver Support Scheme payout frequency?",
       "expected_answer_criteria": "States that payouts are quarterly, and mentions the eligibility tiers by Assessable Income/AV/household support.",
-      "expected_source_doc_ids": [
-        "silver-support"
-      ],
       "expected_relevant_chunk_ids": [
         "adj_silver_support_text_002"
       ]
@@ -40,9 +31,6 @@
       "category": "paraphrase",
       "question": "My mother lives with me and has no job. Can I reduce my tax bill because of her?",
       "expected_answer_criteria": "Identifies Parent Relief as the relevant relief and states its qualifying conditions (e.g. income/age of dependent, cohabitation).",
-      "expected_source_doc_ids": [
-        "iras-tax-reliefs"
-      ],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -50,9 +38,6 @@
       "category": "paraphrase",
       "question": "I'm a working mum with a young kid — is there a tax break for that?",
       "expected_answer_criteria": "Identifies Working Mother's Child Relief (WMCR) and its qualifying conditions.",
-      "expected_source_doc_ids": [
-        "iras-tax-reliefs"
-      ],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -60,10 +45,6 @@
       "category": "paraphrase",
       "question": "I put extra money into my CPF for retirement — do I get anything back on tax?",
       "expected_answer_criteria": "Identifies CPF top-up / SRS-related relief and its qualifying conditions.",
-      "expected_source_doc_ids": [
-        "iras-tax-reliefs",
-        "cpf-matched-retirement-savings"
-      ],
       "expected_relevant_chunk_ids": [
         "iras_cpf_cash_topup_relief_html_text_014",
         "iras_pdf_cpf_cash_topup_relief_text_000"
@@ -74,10 +55,6 @@
       "category": "multi_document",
       "question": "What financial support (cash payouts and tax savings) can a working mother with a young child get from the government?",
       "expected_answer_criteria": "Combines Assurance Package/GST Voucher cash payouts with Working Mother's Child Relief and Child Relief, citing both a Govbenefits-style scheme doc and the IRAS reliefs doc.",
-      "expected_source_doc_ids": [
-        "gst-voucher",
-        "iras-tax-reliefs"
-      ],
       "expected_relevant_chunk_ids": [
         "gst_voucher_policy_and_faqs_text_001"
       ]
@@ -87,10 +64,6 @@
       "category": "multi_document",
       "question": "What can a low-income retired senior living in a rental flat get from the government?",
       "expected_answer_criteria": "Combines Silver Support Scheme and ComCare Assistance, citing both scheme docs.",
-      "expected_source_doc_ids": [
-        "silver-support",
-        "comcare-assistance"
-      ],
       "expected_relevant_chunk_ids": [
         "adj_silver_support_text_001",
         "ComCare Long Term Assistance (LTA) - SupportGoWhere_text_000"
@@ -101,7 +74,6 @@
       "category": "unanswerable",
       "question": "Can I use my CDC vouchers to pay for my IRAS income tax bill?",
       "expected_answer_criteria": "Must trigger the exact fallback: \"The available knowledge base does not contain enough information to answer this question.\"",
-      "expected_source_doc_ids": [],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -109,7 +81,6 @@
       "category": "unanswerable",
       "question": "Can I claim tax relief for taking care of my pet dog?",
       "expected_answer_criteria": "Must trigger the exact fallback: \"The available knowledge base does not contain enough information to answer this question.\"",
-      "expected_source_doc_ids": [],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -117,7 +88,6 @@
       "category": "ambiguous",
       "question": "How much money will I get from the government this year?",
       "expected_answer_criteria": "Should not fabricate a single number; should ask for or note the missing inputs it needs (age, income, property AV, citizenship) before giving a number, or abstain/qualify heavily.",
-      "expected_source_doc_ids": [],
       "expected_relevant_chunk_ids": []
     },
     {
@@ -125,9 +95,6 @@
       "category": "ambiguous",
       "question": "Am I eligible for Workfare?",
       "expected_answer_criteria": "Should note that eligibility depends on age, income, and employment type, and not assert a definite yes/no without those inputs.",
-      "expected_source_doc_ids": [
-        "workfare-income-supplement"
-      ],
       "expected_relevant_chunk_ids": [
         "adj_workfare_income_supplement_text_004"
       ]
@@ -146,10 +113,6 @@
         ]
       },
       "expected_answer_criteria": "Shortlist should surface Silver Support and cost-of-living schemes as 'Possibly eligible', citing amounts only if stated in evidence.",
-      "expected_source_doc_ids": [
-        "silver-support",
-        "gst-voucher"
-      ],
       "expected_relevant_chunk_ids": [
         "adj_silver_support_text_001",
         "gst_voucher_policy_and_faqs_text_001"
@@ -169,9 +132,6 @@
         ]
       },
       "expected_answer_criteria": "Shortlist should surface Baby Bonus / family-oriented schemes as 'Possibly eligible' and not assert senior schemes as eligible.",
-      "expected_source_doc_ids": [
-        "baby-bonus-scheme"
-      ],
       "expected_relevant_chunk_ids": [
         "adj_baby_bonus_cda_text_001"
       ]
@@ -188,7 +148,6 @@
         "life_stage_tags": []
       },
       "expected_answer_criteria": "Heavy 'Likely not eligible / unclear' due to PR status and undisclosed income on citizen-only/income-gated schemes.",
-      "expected_source_doc_ids": [],
       "expected_relevant_chunk_ids": []
     }
   ]

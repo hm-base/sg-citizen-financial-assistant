@@ -60,7 +60,15 @@ def build_chunk_records(
         List of dicts, each with keys:
         chunk_id, doc_id, scheme_name, category, modality, source_file,
         section_or_page, source_url, thumbnail_path, display_name, text,
-        plus any of _OPTIONAL_CITATION_FIELDS present in doc_metadata.
+        embed_text, plus any of _OPTIONAL_CITATION_FIELDS present in
+        doc_metadata.
+
+        `text` is always the verbatim chunk text -- it is what residents see
+        as a quoted excerpt and what the generation prompt is grounded in, so
+        nothing may ever rewrite it. `embed_text` starts identical to `text`
+        and is the only field ingestion.contextualize.contextualize_chunks is
+        allowed to change; it is what gets embedded, stored as the Chroma
+        document body, and BM25-indexed.
     """
     doc_metadata = doc_metadata or {}
     citation_fields = {
@@ -82,6 +90,7 @@ def build_chunk_records(
             "thumbnail_path": thumbnail_path,
             "display_name": display_name or scheme_name,
             "text": chunk["text"],
+            "embed_text": chunk["text"],
             **citation_fields,
         })
     return records

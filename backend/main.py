@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,7 +57,7 @@ def get_rag_index() -> RagIndex:
             raise HTTPException(status_code=503, detail=INDEX_MISSING_DETAIL)
         _rag_index_cache = RagIndex(
             chroma_collection=collection,
-            bm25_index=build_bm25_index([record["text"] for record in chunk_records]),
+            bm25_index=build_bm25_index([record["embed_text"] for record in chunk_records]),
             chunk_records=chunk_records,
             embedder=load_embedder(config.EMBEDDING_MODEL),
         )
@@ -148,14 +149,27 @@ def profile_query(
         raise HTTPException(status_code=503, detail=LLM_PROVIDER_ERROR_DETAIL)
 
 
+def _index_built_at() -> str | None:
+    """Prefers the real timestamp ingestion.build_index writes at build time
+    (data/chroma/build_info.json) over metadata.jsonl's mtime, which a git
+    checkout, file copy, or Drive resync can reset without anything having
+    actually been rebuilt -- making the stale-index banner lie either way.
+    Falls back to mtime only for an index built before this file existed."""
+    build_info_path = Path(config.CHROMA_METADATA_PATH).parent / "build_info.json"
+    if build_info_path.exists():
+        try:
+            return json.loads(build_info_path.read_text(encoding="utf-8"))["built_at"]
+        except (json.JSONDecodeError, KeyError, OSError):
+            pass
+    metadata_path = Path(config.CHROMA_METADATA_PATH)
+    if metadata_path.exists():
+        return datetime.fromtimestamp(metadata_path.stat().st_mtime, tz=timezone.utc).isoformat()
+    return None
+
+
 @app.get("/api/config")
 def get_config():
-    metadata_path = Path(config.CHROMA_METADATA_PATH)
-    index_built_at = (
-        datetime.fromtimestamp(metadata_path.stat().st_mtime, tz=timezone.utc).isoformat()
-        if metadata_path.exists()
-        else None
-    )
+    index_built_at = _index_built_at()
     return {
         "top_k": config.TOP_K,
         "similarity_threshold": config.SIMILARITY_THRESHOLD,

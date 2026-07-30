@@ -28,7 +28,8 @@ class RagIndex:
     bm25_index: object
     chunk_records: list[dict]
     embedder: object
-    chunk_id_to_index: dict = None
+    chunk_id_to_index: dict | None = None
+    collection_count: int | None = None
 
     def __post_init__(self):
         # Derived from chunk_records rather than required at every call site:
@@ -40,6 +41,24 @@ class RagIndex:
             self.chunk_id_to_index = {
                 record["chunk_id"]: index for index, record in enumerate(self.chunk_records)
             }
+
+        # metadata.jsonl and the Chroma collection are two independently
+        # persisted artifacts of the same build; a crash mid-persist (or a
+        # copy/sync that only moved one of them) can leave them out of sync.
+        # This can't repair the drift, but a loud warning beats the silent,
+        # unexplained-abstention failure mode of search_chroma_index quietly
+        # dropping hits it can't resolve.
+        if self.collection_count is None:
+            self.collection_count = self.chroma_collection.count()
+        record_count = len(self.chunk_records)
+        if self.collection_count != record_count:
+            logger.warning(
+                "Chroma collection has %d chunks but chunk_records (metadata.jsonl) has %d -- "
+                "the index and its metadata have drifted out of sync. Consider rebuilding "
+                "via `python -m ingestion.build_index`.",
+                self.collection_count,
+                record_count,
+            )
 
 
 def _retrieve(
@@ -67,17 +86,24 @@ def _retrieve(
       always lands within the first top_k fused slots and its cosine is always
       in the max below.
 
-    Consequence, stated plainly: under exhaustive IndexFlatIP search plus RRF,
-    "hybrid rescues a query that dense abstains on" is not achievable by
-    construction — the two modes always make the identical gate decision. The
-    gate's only job here is to guarantee hybrid is never *more* abstention-prone
-    than dense. Hybrid's actual benefit is re-ranking what reaches the prompt,
-    and must be demonstrated with Hit Rate / Recall / MRR in the evaluation, not
-    with abstention behaviour.
+    Consequence, stated plainly: under dense search (Chroma's HNSW, an
+    approximate index -- not exhaustive) plus RRF, "hybrid rescues a query
+    that dense abstains on" is not achievable by construction, *modulo* HNSW's
+    own recall<1.0 approximation error — the two modes make the identical
+    gate decision as long as both traversals surface the same dense top-1
+    chunk, which HNSW does not literally guarantee the way an exhaustive scan
+    would. The gate's only job here is to guarantee hybrid is never *more*
+    abstention-prone than dense. Hybrid's actual benefit is re-ranking what
+    reaches the prompt, and must be demonstrated with Hit Rate / Recall / MRR
+    in the evaluation, not with abstention behaviour.
     """
     query_vector = embed_texts([query], rag_index.embedder)
     dense_results = search_chroma_index(
-        rag_index.chroma_collection, query_vector, top_k, rag_index.chunk_id_to_index
+        rag_index.chroma_collection,
+        query_vector,
+        top_k,
+        rag_index.chunk_id_to_index,
+        collection_count=rag_index.collection_count,
     )
 
     if retrieval_mode == "dense":
@@ -382,7 +408,9 @@ def _generate_result(prompt: str, retrieved_records: list[dict], llm_client) -> 
         # information" is self-contradictory to the resident.
         return _abstain_result()
     cited = extract_cited_scheme_labels(answer)
-    allowed = {(r["scheme_name"], r["section_or_page"]) for r in retrieved_records}
+    allowed = {
+        (r.get("display_name") or r["scheme_name"], r["section_or_page"]) for r in retrieved_records
+    }
     warnings = [pair for pair in cited if (pair[0].strip(), pair[1].strip()) not in allowed]
     if warnings:
         logger.warning(
