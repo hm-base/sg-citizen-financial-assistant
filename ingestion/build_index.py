@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -552,6 +553,20 @@ def load_metadata(metadata_path: Path) -> list[dict]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def swap_in_new_chroma_index(staging_path: Path, live_path: Path) -> None:
+    """Replace `live_path` with the already-fully-built `staging_path`.
+
+    Called only after persist_index has successfully written the staging
+    directory, so the previous live index stays intact and queryable for the
+    entire (multi-hour) build, and a crash mid-build never leaves `live_path`
+    empty or partially written -- it is only ever touched by this final,
+    fast rename step.
+    """
+    if live_path.exists():
+        shutil.rmtree(live_path)
+    staging_path.rename(live_path)
+
+
 if __name__ == "__main__":
     import config
     from retrieval.embed import get_device, load_embedder
@@ -607,14 +622,27 @@ if __name__ == "__main__":
         enable_contextual_chunking=config.ENABLE_CONTEXTUAL_CHUNKING,
         circuit_breaker_threshold=config.CONTEXTUALIZE_CIRCUIT_BREAKER_THRESHOLD,
     )
+
+    # Build into a staging directory and only swap it in once fully persisted,
+    # so the previous live index stays queryable for the whole build and a
+    # crash never leaves data/chroma empty or half-written.
+    staging_path = config.CHROMA_PATH.parent / "chroma_staging"
+    if staging_path.exists():
+        shutil.rmtree(staging_path)
     persist_index(
         chunk_records,
         chroma_metadatas,
         vectors,
-        config.CHROMA_METADATA_PATH,
-        chroma_path=config.CHROMA_PATH,
+        staging_path / "metadata.jsonl",
+        chroma_path=staging_path,
         chroma_collection_name=config.CHROMA_COLLECTION_NAME,
     )
+
+    import gc
+
+    gc.collect()  # release chromadb's sqlite handle before renaming the directory
+    swap_in_new_chroma_index(staging_path, config.CHROMA_PATH)
+
     print(f"Indexed {len(chunk_records)} chunks into {config.CHROMA_PATH}")
     print(
         f"Contextualization: {contextualize_stats['contextualized']} contextualized, "

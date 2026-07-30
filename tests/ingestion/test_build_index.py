@@ -5,6 +5,7 @@ from ingestion.build_index import (
     load_doc_metadata_index,
     load_metadata,
     persist_index,
+    swap_in_new_chroma_index,
 )
 from retrieval.chroma_index import get_chroma_client, get_or_create_chroma_collection
 from retrieval.embed import load_embedder
@@ -198,3 +199,30 @@ def test_persist_index_and_load_metadata_roundtrip(tmp_path):
 
     build_info = json.loads((metadata_path.parent / "build_info.json").read_text(encoding="utf-8"))
     assert "built_at" in build_info
+
+
+def test_swap_in_new_chroma_index_replaces_the_live_directory_with_staging(tmp_path):
+    live_path = tmp_path / "chroma"
+    live_path.mkdir()
+    (live_path / "old_metadata.jsonl").write_text("old", encoding="utf-8")
+
+    staging_path = tmp_path / "chroma_staging"
+    staging_path.mkdir()
+    (staging_path / "metadata.jsonl").write_text("new", encoding="utf-8")
+
+    swap_in_new_chroma_index(staging_path, live_path)
+
+    assert not staging_path.exists()
+    assert (live_path / "metadata.jsonl").read_text(encoding="utf-8") == "new"
+    assert not (live_path / "old_metadata.jsonl").exists()
+
+
+def test_swap_in_new_chroma_index_works_when_no_live_directory_exists_yet(tmp_path):
+    live_path = tmp_path / "chroma"
+    staging_path = tmp_path / "chroma_staging"
+    staging_path.mkdir()
+    (staging_path / "metadata.jsonl").write_text("new", encoding="utf-8")
+
+    swap_in_new_chroma_index(staging_path, live_path)
+
+    assert (live_path / "metadata.jsonl").read_text(encoding="utf-8") == "new"
