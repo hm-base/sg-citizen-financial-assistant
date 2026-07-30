@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import backend.main
-from backend.main import app, get_llm_client, get_rag_index
+from backend.main import app, get_llm_client, get_llm_clients, get_rag_index
 from generation.pipeline import RagIndex
 from retrieval.bm25_index import build_bm25_index
 from retrieval.chroma_index import build_chroma_collection, upsert_chunks
@@ -56,9 +56,9 @@ def _fake_rag_index():
 
 def test_api_query_returns_grounded_answer():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient(
         "You may get up to $850 [GST Voucher, FAQ]."
-    )
+    )]
     client = TestClient(app)
 
     response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
@@ -75,7 +75,7 @@ def test_api_profile_query_returns_shortlist():
     import json
 
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(json.dumps([
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient(json.dumps([
         {
             "scheme": "GST Voucher",
             "reason": "Citizenship and income band match the stated criteria.",
@@ -84,7 +84,7 @@ def test_api_profile_query_returns_shortlist():
             "changer": "A higher home annual value would reduce the amount.",
             "citation_chunk_ids": ["gst-voucher_text_000"],
         },
-    ]))
+    ]))]
     client = TestClient(app)
 
     response = client.post(
@@ -101,7 +101,7 @@ def test_api_profile_query_returns_shortlist():
 
 def test_api_profile_query_returns_502_when_llm_never_returns_valid_json():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("not json, sorry")
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient("not json, sorry")]
     client = TestClient(app)
 
     response = client.post(
@@ -140,11 +140,12 @@ def _gemini_quota_error():
 
 
 @pytest.mark.parametrize("make_error", [_groq_rate_limit_error, _gemini_quota_error])
-def test_api_query_returns_503_when_llm_provider_errors(make_error):
+def test_api_query_returns_503_when_all_llm_providers_error(make_error):
     """A provider-side rate limit/quota error must surface as a clear 503, not
-    an unhandled 500 with a raw traceback and no actionable message."""
+    an unhandled 500 with a raw traceback and no actionable message, once
+    every configured provider has failed the same way."""
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: RaisingLLMClient(make_error())
+    app.dependency_overrides[get_llm_clients] = lambda: [RaisingLLMClient(make_error())]
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
@@ -154,9 +155,9 @@ def test_api_query_returns_503_when_llm_provider_errors(make_error):
     app.dependency_overrides.clear()
 
 
-def test_api_profile_query_returns_503_when_llm_provider_errors():
+def test_api_profile_query_returns_503_when_all_llm_providers_error():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: RaisingLLMClient(_groq_rate_limit_error())
+    app.dependency_overrides[get_llm_clients] = lambda: [RaisingLLMClient(_groq_rate_limit_error())]
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.post(
@@ -167,6 +168,34 @@ def test_api_profile_query_returns_503_when_llm_provider_errors():
     assert response.status_code == 503
     assert "rate limit or quota" in response.json()["detail"]
     app.dependency_overrides.clear()
+
+
+def test_api_query_falls_back_to_next_provider_when_first_is_rate_limited():
+    """The whole point of the fallback list: a rate-limited/quota-exhausted
+    first provider must not fail the request when a later one can serve it."""
+    app.dependency_overrides[get_rag_index] = _fake_rag_index
+    app.dependency_overrides[get_llm_clients] = lambda: [
+        RaisingLLMClient(_groq_rate_limit_error()),
+        FakeLLMClient("You may get up to $850 [GST Voucher, FAQ]."),
+    ]
+    client = TestClient(app)
+
+    response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
+
+    assert response.status_code == 200
+    assert "GST Voucher" in response.json()["answer"]
+    app.dependency_overrides.clear()
+
+
+def test_get_llm_clients_orders_configured_provider_first_and_skips_missing_keys(monkeypatch):
+    monkeypatch.setattr(backend.main.config, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(backend.main.config, "GROQ_API_KEY", "groq-key")
+    monkeypatch.setattr(backend.main.config, "GEMINI_API_KEY", "gemini-key")
+    monkeypatch.setattr(backend.main.config, "OPENAI_API_KEY", None)
+
+    clients = get_llm_clients()
+
+    assert [type(c).__name__ for c in clients] == ["GroqClient", "GeminiClient"]
 
 
 def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeypatch):
@@ -183,7 +212,7 @@ def test_get_rag_index_raises_503_when_index_files_are_missing(tmp_path, monkeyp
 def test_api_query_returns_503_when_index_is_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(backend.main, "_rag_index_cache", None)
     monkeypatch.setattr(backend.main.config, "CHROMA_METADATA_PATH", tmp_path / "missing.jsonl")
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("never used")
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient("never used")]
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.post("/api/query", json={"question": "How much is GST Voucher?"})
@@ -266,9 +295,9 @@ def _fake_low_similarity_rag_index():
 def test_explicit_zero_similarity_threshold_is_not_replaced_by_the_default():
     """threshold=0 means "never abstain" and must not be read as "unset"."""
     app.dependency_overrides[get_rag_index] = _fake_low_similarity_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient(
         "You may get up to $850 [GST Voucher, FAQ]."
-    )
+    )]
     client = TestClient(app)
 
     defaulted = client.post("/api/query", json={"question": "How much is GST Voucher?"})
@@ -286,7 +315,7 @@ def test_explicit_zero_similarity_threshold_is_not_replaced_by_the_default():
 
 def test_explicit_zero_top_k_is_not_replaced_by_the_default():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient("never used")
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient("never used")]
     client = TestClient(app)
 
     response = client.post("/api/query", json={"question": "How much is GST Voucher?", "top_k": 0})
@@ -310,7 +339,7 @@ class QueuedLLMClient:
 def test_explicit_rewrite_query_flag_calls_the_llm_for_rewriting_first():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
     llm_client = QueuedLLMClient(["GST Voucher", "You may get up to $850 [GST Voucher, FAQ]."])
-    app.dependency_overrides[get_llm_client] = lambda: llm_client
+    app.dependency_overrides[get_llm_clients] = lambda: [llm_client]
     client = TestClient(app)
 
     response = client.post(
@@ -326,9 +355,9 @@ def test_explicit_rewrite_query_flag_calls_the_llm_for_rewriting_first():
 
 def test_diagnostics_full_query_param_computes_gain():
     app.dependency_overrides[get_rag_index] = _fake_rag_index
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+    app.dependency_overrides[get_llm_clients] = lambda: [FakeLLMClient(
         "You may get up to $850 [GST Voucher, FAQ]."
-    )
+    )]
     client = TestClient(app)
 
     without_gain = client.post("/api/query", json={"question": "GST voucher amount"})

@@ -39,10 +39,24 @@ INDEX_MISSING_DETAIL = (
 # of "try again shortly" or "switch provider."
 LLM_PROVIDER_ERRORS = (GeminiClientError, GroqAPIStatusError)
 LLM_PROVIDER_ERROR_DETAIL = (
-    "The assistant's LLM provider is temporarily unavailable (rate limit or "
-    "quota exceeded). Please try again in a few minutes, or switch "
-    "LLM_PROVIDER in .env if another provider has quota left."
+    "The assistant's LLM providers are all temporarily unavailable (rate "
+    "limit or quota exceeded). Please try again in a few minutes."
 )
+
+
+def _call_with_llm_fallback(fn, *args, llm_clients: list, **kwargs):
+    """Try each client in turn, moving to the next only on a provider-side
+    rate-limit/quota error. Raises the last such error once every client has
+    been exhausted, so the caller's except clause still fires."""
+    if not llm_clients:
+        raise RuntimeError("No LLM provider is configured (all API keys are unset).")
+    last_error = None
+    for client in llm_clients:
+        try:
+            return fn(*args, client, **kwargs)
+        except LLM_PROVIDER_ERRORS as exc:
+            last_error = exc
+    raise last_error
 
 
 def get_rag_index() -> RagIndex:
@@ -64,12 +78,30 @@ def get_rag_index() -> RagIndex:
     return _rag_index_cache
 
 
-def get_llm_client():
-    if config.LLM_PROVIDER == "groq":
+def get_llm_client(provider: str | None = None):
+    provider = provider or config.LLM_PROVIDER
+    if provider == "groq":
         return GroqClient(api_key=config.GROQ_API_KEY, model_name=config.GROQ_MODEL)
-    if config.LLM_PROVIDER == "openai":
+    if provider == "openai":
         return OpenAIClient(api_key=config.OPENAI_API_KEY, model_name=config.OPENAI_MODEL)
     return GeminiClient(api_key=config.GEMINI_API_KEY, model_name=config.GEMINI_MODEL)
+
+
+_PROVIDER_API_KEYS = {
+    "gemini": lambda: config.GEMINI_API_KEY,
+    "groq": lambda: config.GROQ_API_KEY,
+    "openai": lambda: config.OPENAI_API_KEY,
+}
+
+
+def get_llm_clients() -> list:
+    """Clients for every configured provider, tried in this order: the
+    provider set in LLM_PROVIDER first, then the other two (skipping any
+    without an API key). A rate-limited/quota-exhausted provider then just
+    falls through to the next one instead of failing the whole request."""
+    primary = config.LLM_PROVIDER if config.LLM_PROVIDER in _PROVIDER_API_KEYS else "gemini"
+    order = [primary, *[p for p in _PROVIDER_API_KEYS if p != primary]]
+    return [get_llm_client(provider) for provider in order if _PROVIDER_API_KEYS[provider]()]
 
 
 def _override(requested, default):
@@ -104,13 +136,14 @@ def query(
     request: QueryRequest,
     diagnostics: str | None = None,
     rag_index: RagIndex = Depends(get_rag_index),
-    llm_client=Depends(get_llm_client),
+    llm_clients: list = Depends(get_llm_clients),
 ):
     try:
-        return answer_general_question(
+        return _call_with_llm_fallback(
+            answer_general_question,
             request.question,
             rag_index,
-            llm_client,
+            llm_clients=llm_clients,
             top_k=_override(request.top_k, config.TOP_K),
             similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
             retrieval_mode=_override(request.retrieval_mode, config.RETRIEVAL_MODE),
@@ -126,13 +159,14 @@ def profile_query(
     request: ProfileQueryRequest,
     diagnostics: str | None = None,
     rag_index: RagIndex = Depends(get_rag_index),
-    llm_client=Depends(get_llm_client),
+    llm_clients: list = Depends(get_llm_clients),
 ):
     try:
-        return answer_profile_question(
+        return _call_with_llm_fallback(
+            answer_profile_question,
             request.profile,
             rag_index,
-            llm_client,
+            llm_clients=llm_clients,
             free_text_question=request.free_text_question,
             top_k=_override(request.top_k, config.TOP_K),
             similarity_threshold=_override(request.similarity_threshold, config.SIMILARITY_THRESHOLD),
